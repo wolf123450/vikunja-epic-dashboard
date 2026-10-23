@@ -100,8 +100,9 @@ export class Syncer {
    */
   refresh(): Promise<SyncStatus> {
     if (this.inFlight) return this.inFlight;
-    const run = this.runSync().finally(() => {
+    const run = this.runSync().then(() => {
       this.inFlight = null;
+      return this.status();
     });
     this.inFlight = run;
     return run;
