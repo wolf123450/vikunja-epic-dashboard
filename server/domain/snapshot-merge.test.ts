@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeBurnup } from './snapshot-merge.js';
+import { mergeBurnup, withLiveToday } from './snapshot-merge.js';
 import type { BurnupPoint, SnapshotRow } from './types.js';
 
 const rec = (date: string, scope = 10, done = 2): BurnupPoint => ({
@@ -60,18 +60,40 @@ describe('mergeBurnup', () => {
     expect(out.every((p) => p.source === 'snapshot')).toBe(true);
   });
 
-  it('extends to a later reconstructed date by carrying the last snapshot', () => {
-    const r = [rec('2026-10-01'), rec('2026-10-02'), rec('2026-10-03')];
+  it('uses reconstructed values for days after the last snapshot', () => {
+    const r = [rec('2026-10-01'), rec('2026-10-02'), rec('2026-10-03', 15, 4), rec('2026-10-04', 16, 5)];
     const out = mergeBurnup(r, [snap('2026-10-02', 30, 9)]);
     expect(out.map((p) => [p.date, p.source, p.scopePoints])).toEqual([
       ['2026-10-01', 'reconstructed', 10],
       ['2026-10-02', 'snapshot', 30],
-      ['2026-10-03', 'snapshot', 30],
+      ['2026-10-03', 'reconstructed', 15],
+      ['2026-10-04', 'reconstructed', 16],
     ]);
   });
 
   it('handles month boundaries when filling gaps', () => {
     const out = mergeBurnup([], [snap('2026-10-30', 1, 0), snap('2026-11-02', 2, 1)]);
     expect(out.map((p) => p.date)).toEqual(['2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02']);
+  });
+});
+
+describe('withLiveToday', () => {
+  const live = { pointsTotal: 40, pointsDone: 12, tasksTotal: 9, tasksDone: 4 };
+  const series = [rec('2026-10-01'), rec('2026-10-02'), rec('2026-10-03')];
+
+  it("replaces today's point with the live rollup, marked snapshot when snapshots exist", () => {
+    const out = withLiveToday(series, live, '2026-10-03', true);
+    expect(out).toHaveLength(3);
+    expect(out[2]).toEqual({ date: '2026-10-03', scopePoints: 40, donePoints: 12, scopeTasks: 9, doneTasks: 4, source: 'snapshot' });
+    expect(out[1]).toEqual(series[1]);
+  });
+
+  it('stays reconstructed without snapshots', () => {
+    expect(withLiveToday(series, live, '2026-10-03', false)[2]).toMatchObject({ scopePoints: 40, source: 'reconstructed' });
+  });
+
+  it('appends when today is missing and leaves an empty series alone', () => {
+    expect(withLiveToday(series, live, '2026-10-04', true).map((p) => p.date)).toEqual(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04']);
+    expect(withLiveToday([], live, '2026-10-04', true)).toEqual([]);
   });
 });

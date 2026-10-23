@@ -188,6 +188,22 @@ describe('after a sync', () => {
     expect(body.burnup.some((p) => p.source === 'snapshot')).toBe(true);
   });
 
+  it("replaces today's burn-up point with the live rollup, marked snapshot only when snapshots exist", async () => {
+    const live = { scopePoints: 11, donePoints: 3, scopeTasks: 3, doneTasks: 1 };
+    const without = await get<EpicDetailResponse>('/api/epics/1%3Afoo');
+    expect(without.body.burnup.at(-1)).toMatchObject({ date: '2026-10-20', ...live, source: 'reconstructed' });
+
+    // Stale snapshot (two days old, different numbers): today still shows the live state.
+    snapshotRows = [
+      { date: '2026-10-18', projectId: 1, epicSlug: 'foo', pointsTotal: 5, pointsDone: 0, tasksTotal: 2, tasksDone: 0, unpointedOpen: 1 },
+    ];
+    const withSnap = await get<EpicDetailResponse>('/api/epics/1%3Afoo');
+    const byDate = Object.fromEntries(withSnap.body.burnup.map((p) => [p.date, p]));
+    expect(byDate['2026-10-18']).toMatchObject({ scopePoints: 5, source: 'snapshot' });
+    expect(byDate['2026-10-19']).toMatchObject({ source: 'reconstructed' });
+    expect(byDate['2026-10-20']).toMatchObject({ ...live, source: 'snapshot' });
+  });
+
   it('serves the No-epic detail and 404s unknown epics', async () => {
     const ok = await get<EpicDetailResponse>('/api/epics/1%3A');
     expect(ok.code).toBe(200);

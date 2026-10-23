@@ -16,10 +16,10 @@ import type {
   VelocityResponse,
 } from '../../shared/api.js';
 import type { Config } from '../config.js';
-import { mergeBurnup } from '../domain/snapshot-merge.js';
+import { mergeBurnup, withLiveToday } from '../domain/snapshot-merge.js';
 import { reconstructBurnup } from '../domain/burnup.js';
 import { compareRollups, epicTasks, noEpicTasks, rollup } from '../domain/rollup.js';
-import { forecast, velocity } from '../domain/velocity.js';
+import { calendarDate, forecast, velocity } from '../domain/velocity.js';
 import type { Model, SnapshotRow, Task } from '../domain/types.js';
 import type { Syncer } from '../sync/syncer.js';
 import { epicDTO, mergedBuckets, noEpicDTO, rollupDTO, taskDTO } from './dto.js';
@@ -168,7 +168,13 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   const epicDetail = async (model: Model, key: string): Promise<EpicDetailResponse> => {
     const { root, slug, members, dto } = resolveEpic(model, key);
-    const burnup = mergeBurnup(reconstructBurnup(members, config.tz, now()), await snapshotRows(root, slug));
+    const rows = await snapshotRows(root, slug);
+    const burnup = withLiveToday(
+      mergeBurnup(reconstructBurnup(members, config.tz, now()), rows),
+      rollup(members),
+      calendarDate(now(), config.tz),
+      rows.length > 0,
+    );
     return {
       epic: dto,
       buckets: mergedBuckets(model, [root], config.bucketColors),
