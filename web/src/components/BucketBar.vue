@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { BucketDTO, RollupDTO } from '../../../shared/api';
+import { shouldNavigateOnClick } from '../lib/tap';
 import { computeSegments, segmentDescription, type SegmentMode } from '../lib/segments';
 
 const props = defineProps<{
@@ -22,12 +23,24 @@ const tipAlign = computed(() => {
   return c < 22 ? 'left' : c > 78 ? 'right' : 'center';
 });
 
+// Emulated mouseenter/focus follow a tap; they must not pre-activate the tooltip,
+// or the first tap would look like a second one.
+let touching = false;
+function show(id: string): void {
+  if (!touching) active.value = id;
+}
 function onPointerDown(e: PointerEvent): void {
   lastPointer = e.pointerType;
+  touching = e.pointerType === 'touch';
 }
 // On touch, the first tap shows the tooltip and a second tap on the same segment navigates.
-function onClick(e: MouseEvent, id: string): void {
-  if (lastPointer === 'touch' && active.value !== id) {
+function onClick(e: MouseEvent, id: string, navigate: (e?: MouseEvent) => unknown): void {
+  // Keyboard Enter dispatches a click with detail 0; treat it as non-touch.
+  const pointer = e.detail === 0 ? 'keyboard' : lastPointer;
+  touching = false;
+  if (shouldNavigateOnClick(pointer, active.value, id)) {
+    navigate(e);
+  } else {
     e.preventDefault();
     active.value = id;
   }
@@ -52,16 +65,23 @@ function onBlur(e: FocusEvent): void {
         <RouterLink
           v-for="s in bar.segments"
           :key="segId(s.bucketKey)"
-          class="seg"
+          v-slot="{ href, navigate }"
+          custom
           :to="{ name: 'epic', params: { key: epicKey }, query: { bucket: s.bucketKey ?? '__none__' } }"
-          :style="{ flex: `${s.weight} 1 0`, background: s.color }"
-          :aria-label="`${epicName}, ${segmentDescription(s)}`"
-          @mouseenter="active = segId(s.bucketKey)"
-          @focus="active = segId(s.bucketKey)"
-          @blur="onBlur"
-          @pointerdown="onPointerDown"
-          @click="onClick($event, segId(s.bucketKey))"
-        />
+        >
+          <a
+            class="seg"
+            :href="href"
+            :style="{ flex: `${s.weight} 1 0`, background: s.color }"
+            :aria-label="`${epicName}, ${segmentDescription(s)}`"
+            @mouseenter="show(segId(s.bucketKey))"
+            @focus="show(segId(s.bucketKey))"
+            @blur="onBlur"
+            @pointerdown="onPointerDown"
+            @keydown="touching = false"
+            @click="onClick($event, segId(s.bucketKey), navigate)"
+          />
+        </RouterLink>
       </template>
       <span
         v-else
