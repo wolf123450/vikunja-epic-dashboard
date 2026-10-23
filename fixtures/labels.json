@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "title": "SP: 2",
+    "description": "",
+    "hex_color": "4CAF50",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 2,
+    "title": "SP: 3",
+    "description": "",
+    "hex_color": "8BC34A",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 3,
+    "title": "SP: 5",
+    "description": "",
+    "hex_color": "CDDC39",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 4,
+    "title": "SP: 8",
+    "description": "",
+    "hex_color": "FFC107",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 5,
+    "title": "SP: 13",
+    "description": "",
+    "hex_color": "FF9800",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 6,
+    "title": "SP: 21",
+    "description": "",
+    "hex_color": "FF5722",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 7,
+    "title": "SP: 40",
+    "description": "",
+    "hex_color": "E53935",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  },
+  {
+    "id": 8,
+    "title": "SP: 100",
+    "description": "",
+    "hex_color": "8E24AA",
+    "created_by": {
+      "id": 1,
+      "name": "",
+      "username": "user1",
+      "created": "2026-07-31T16:18:10Z",
+      "updated": "2026-09-29T22:05:19Z"
+    },
+    "created": "2026-10-03T18:13:15Z",
+    "updated": "2026-10-03T18:13:15Z"
+  }
+]

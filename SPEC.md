@@ -85,8 +85,10 @@ Keep `domain/` free of I/O. Every metric in this spec should be computable from 
 | Purpose | Expected endpoint | Notes |
 | --- | --- | --- |
 | Server version | `GET /api/v1/info` | Log it at startup; warn if outside the tested range (target: v2.7.0) |
-| Projects | `GET /api/v1/projects` | Include child projects when `INCLUDE_CHILD_PROJECTS=true` |
-| Tasks in a project | `GET /api/v1/projects/{id}/views/{viewId}/tasks` or `GET /api/v1/tasks/all` with a project filter | Pick whichever the instance supports; must return labels and related tasks |
+| Projects | `GET /api/v1/projects` | Include child projects when `INCLUDE_CHILD_PROJECTS=true`. The list also contains pseudo-projects with negative ids (e.g. `-2`, Favorites); drop them |
+| Tasks in a project | `GET /api/v1/projects/{id}/views/{viewId}/tasks` or `GET /api/v1/tasks` with `filter=project in …` | Confirmed in v2.7.0's OpenAPI: the global list is `/tasks` (there is no `/tasks/all`). Must return labels and related tasks |
+| Views | `GET /api/v1/projects/{project}/views` | Confirmed. `view_kind` is `list`, `gantt`, `table`, or `kanban`; Kanban views carry `done_bucket_id` and `default_bucket_id` |
+| Buckets | Kanban view's task listing (see Kanban buckets below) | `GET /api/v1/projects/{id}/views/{view}/buckets` exists but needs an extra token scope, and the view listing already carries `id`, `title`, `position`, `count` |
 | Labels | `GET /api/v1/labels` | Optional; useful for the hygiene view |
 
 **Fields used from each task**
@@ -99,13 +101,14 @@ Keep `domain/` free of I/O. Every metric in this spec should be computable from 
 **Kanban buckets (for the epic cards view)**
 
 - Buckets belong to a project's Kanban view, not to the project. Use the view named by `KANBAN_VIEW_ID`, else the project's first Kanban view.
-- Fetch the bucket list (name, position) and each task's bucket for that view. The Kanban view's task listing may return buckets with their tasks nested, which gives both in one call; verify against the OpenAPI spec.
+- Fetch the bucket list (name, position) and each task's bucket for that view. Confirmed on v2.7.0 (the OpenAPI spec is wrong here and says `Task[]`): the Kanban view's task listing returns buckets, each with at most one page of tasks nested and a `count` of its full size. Buckets whose nested tasks are complete need no further request; larger ones are paged in with `filter=bucket_id = <id>` on the same view, which returns a flat, paginated task list. `GET /tasks` always reports `bucket_id: 0`, so membership must come from the view. `GET …/buckets` is not used, because it needs an extra token scope.
 - With `INCLUDE_CHILD_PROJECTS=true`, child projects have their own buckets: match them to the parent's buckets by name, case-insensitive. Unmatched buckets are appended after the parent's and flagged in the hygiene view.
 - Add `bucket: { id: number; name: string; position: number } | null` to the normalized `Task`.
 
 **Client requirements**
 
-- Paginate with `page` and `per_page` (max the server allows) until the pagination headers say there are no more pages.
+- Paginate with `page` and `per_page` (max the server allows, read from `/info`'s `max_items_per_page`; 50 by default) until the pagination headers say there are no more pages. The OpenAPI spec doesn't document the headers; the client reads `x-pagination-total-pages` and falls back to stopping at a short page.
+- Unset dates may arrive as `null` or as Go's zero time (`0001-01-01T00:00:00Z`); both normalize to `null`.
 - Bearer auth with a Vikunja API token scoped read-only to projects, tasks, and labels.
 - Full resync on an interval (default 5 minutes) plus a manual refresh endpoint. At \~1k tasks a full resync is cheap; skip incremental sync in v1.
 - Treat a zod validation failure as a hard error with a clear log line naming the field, not a silent partial dashboard.

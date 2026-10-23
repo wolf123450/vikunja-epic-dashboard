@@ -19,6 +19,8 @@ A read-only, self-hosted dashboard that rolls Vikunja tasks up into epic progres
 
 - `npm run dev:server` / `npm run dev:web`
 - `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`
+- `npm run live-check`: full read against the real instance (needs `.env`); prints counts and timing only
+- `npm run fixtures:record [-- projectId]`: re-record scrubbed fixtures; review `git diff fixtures/` before committing
 
 ## Working rules
 

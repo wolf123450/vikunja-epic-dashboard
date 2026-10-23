@@ -15,9 +15,11 @@
     "build": "vite build && tsc -p server/tsconfig.json",
     "start": "node dist/server/index.js",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p server/tsconfig.json && vue-tsc --noEmit -p web/tsconfig.json",
+    "typecheck": "tsc --noEmit -p scripts/tsconfig.json && vue-tsc --noEmit -p web/tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "fixtures:record": "tsx --env-file=.env scripts/record-fixtures.ts",
+    "live-check": "tsx --env-file=.env scripts/live-check.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.7",
