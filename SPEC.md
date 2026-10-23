@@ -35,6 +35,7 @@ All metadata lives in ordinary Vikunja labels and task relations, so it can be b
 
 - Multiple `sp:` labels on one task: flag as a conflict and use the highest value.
 - A task in more than one epic: counts toward each; flagged as an overlap only when `EPIC_ALLOW_OVERLAP=false`.
+- Nested parent-mode epics: tasks under an inner epic marker also belong to the outer epic (they count toward both; with `EPIC_ALLOW_OVERLAP=false` they are flagged as overlap). The inner marker itself is never a member of either.
 - Subtask cycles in parent mode: detect and stop recursion; flag the cycle.
 - Label matching is case-insensitive and trims whitespace (`SP:5`, `sp: 5` both parse).
 - Done tasks keep their points; a task reopened after `done_at` counts as open.
@@ -153,6 +154,8 @@ Vikunja doesn't expose when a label was added, so true historical scope can't be
 2. **Snapshotted (after deployment):** a daily job writes per-epic totals to SQLite. From then on, both lines are exact, including scope changes from re-pointing.
 
 Merge rules: reconstructed points before the first snapshot date; snapshot points from the first to the last snapshot date, with gaps between two snapshot dates carrying the earlier snapshot forward; reconstructed points again for days after the last snapshot (a stalled job never draws a flat "exact" line). The epic detail response then replaces today's point (calendar date in `TZ`) with the live rollup of the epic's current members: marked `snapshot` when any snapshots exist (it is the exact current state), otherwise left `reconstructed`.
+
+Snapshot dating: a snapshot is dated the local day (in `TZ`) it is taken and records the state at `SNAPSHOT_TIME` (03:00 by default, roughly the end of the previous day). At the boundary between reconstructed and snapshotted history the series can therefore be one day out of step. This is accepted.
 
 Snapshot table: `snapshots(date TEXT, project_id INT, epic_slug TEXT, points_total REAL, points_done REAL, tasks_total INT, tasks_done INT, unpointed_open INT, PRIMARY KEY(date, project_id, epic_slug))`. The job is idempotent per day: re-running replaces that day's rows. Point columns are REAL because points are flexible (decimals such as `sp:0.5`).
 
