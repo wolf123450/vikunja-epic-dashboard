@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fixtures:record": "tsx --env-file=.env scripts/record-fixtures.ts",
-    "live-check": "tsx --env-file=.env scripts/live-check.ts"
+    "live-check": "tsx --env-file=.env scripts/live-check.ts",
+    "dev:web:mock": "vite --mode mock"
   },
   "dependencies": {
     "@fastify/static": "^10.1.7",
