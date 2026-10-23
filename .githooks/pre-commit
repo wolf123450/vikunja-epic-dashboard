@@ -9,7 +9,8 @@ fi
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   # Pipe the staged diff in, rather than mounting the repo: in a git worktree the .git file
   # points at a host path the container can't resolve, and the scan would silently see nothing.
-  git diff --cached --no-color --no-ext-diff |     MSYS_NO_PATHCONV=1 docker run -i --rm zricethezav/gitleaks:latest stdin --redact --no-banner
+  git diff --cached --no-color --no-ext-diff | \
+    MSYS_NO_PATHCONV=1 docker run -i --rm zricethezav/gitleaks:latest stdin --redact --no-banner
   exit $?
 fi
 
