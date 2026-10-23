@@ -9,7 +9,8 @@ A read-only, self-hosted dashboard that rolls Vikunja tasks up into epic progres
 ## Layout
 
 - `server/vikunja/` API client, pagination, zod schemas
-- `server/domain/` label parsing, epic resolution, rollups. **Pure functions, no I/O.**
+- `server/domain/` label parsing, epic resolution, rollups. **Pure functions, no I/O, no clock reads (pass `now`).** Types in `types.ts`.
+- `shared/` API contract (`api.ts`) and bucket palette, imported by both server and web. Change the contract here first.
 - `server/snapshots/` SQLite schema + daily job
 - `server/routes/` dashboard REST endpoints
 - `web/` Vue SPA
