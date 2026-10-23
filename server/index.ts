@@ -20,6 +20,10 @@ const store = SnapshotStore.open(config.dataDir);
 const snapshots = createSnapshotsHook(store, {
   snapshotTime: config.snapshotTime,
   tz: config.tz,
+  isFresh: () => {
+    const last = syncer.status().lastSuccessAt;
+    return last !== null && Date.now() - new Date(last).getTime() <= 3 * syncer.intervalMs;
+  },
   log: { info: (m) => app.log.info(m), error: (m, err) => app.log.error({ err }, m) },
 });
 

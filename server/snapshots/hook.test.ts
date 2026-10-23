@@ -48,4 +48,22 @@ describe('createSnapshotsHook', () => {
     expect(store.latestDate()).toBeNull();
     expect(log.error).toHaveBeenCalled();
   });
+
+  it('skips (and logs) a snapshot from a stale model, then writes once the sync is fresh again', async () => {
+    vi.useFakeTimers({ now: new Date('2026-05-01T18:00:00Z') });
+    const store = SnapshotStore.memory();
+    const log = { info: vi.fn(), error: vi.fn() };
+    let fresh = false;
+    const hook = createSnapshotsHook(store, { snapshotTime: '03:00', tz: 'UTC', log, isFresh: () => fresh });
+    const stop = hook.startDaily(() => model);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(store.latestDate()).toBeNull();
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('failed'), expect.objectContaining({ message: expect.stringContaining('3 sync intervals') }));
+
+    fresh = true;
+    await vi.advanceTimersByTimeAsync(10 * 60_000); // the retry
+    stop();
+    expect(store.hasDay('2026-05-01')).toBe(true);
+  });
 });
