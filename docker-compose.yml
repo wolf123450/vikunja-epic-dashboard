@@ -1,0 +1,25 @@
+# Runs the dashboard next to an existing Vikunja container.
+# Set VIKUNJA_NETWORK (in .env or your shell) to the name of Vikunja's Docker network.
+# Find it with: docker network ls
+services:
+  dashboard:
+    build: .
+    image: vikunja-epic-dashboard
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    ports:
+      - "8080:8080"
+    volumes:
+      - dashboard-data:/data
+    networks:
+      - vikunja
+
+volumes:
+  dashboard-data:
+
+networks:
+  vikunja:
+    external: true
+    name: ${VIKUNJA_NETWORK:-vikunja_default}
