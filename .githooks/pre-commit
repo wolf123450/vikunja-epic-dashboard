@@ -1,15 +1,16 @@
 #!/bin/sh
 # Scan staged changes for secrets. Enable with: git config core.hooksPath .githooks
-# Uses a local gitleaks binary if present, else the official Docker image.
+# Uses a local gitleaks binary if present, else the official Docker image (scanning the staged diff).
 
 if command -v gitleaks >/dev/null 2>&1; then
   exec gitleaks git --pre-commit --staged --redact --no-banner
 fi
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  # MSYS_NO_PATHCONV stops Git Bash on Windows from rewriting /repo into a host path.
-  MSYS_NO_PATHCONV=1 exec docker run --rm -v "$(pwd):/repo" -w /repo zricethezav/gitleaks:latest \
-    git --pre-commit --staged --redact --no-banner /repo
+  # Pipe the staged diff in, rather than mounting the repo: in a git worktree the .git file
+  # points at a host path the container can't resolve, and the scan would silently see nothing.
+  git diff --cached --no-color --no-ext-diff |     MSYS_NO_PATHCONV=1 docker run -i --rm zricethezav/gitleaks:latest stdin --redact --no-banner
+  exit $?
 fi
 
 echo "pre-commit: gitleaks not found and Docker not running; cannot scan for secrets." >&2
