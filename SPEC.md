@@ -86,7 +86,9 @@ Keep `domain/` free of I/O. Every metric in this spec should be computable from 
 | --- | --- | --- |
 | Server version | `GET /api/v1/info` | Log it at startup; warn if outside the tested range (target: v2.7.0) |
 | Projects | `GET /api/v1/projects` | Include child projects when `INCLUDE_CHILD_PROJECTS=true` |
-| Tasks in a project | `GET /api/v1/projects/{id}/views/{viewId}/tasks` or `GET /api/v1/tasks/all` with a project filter | Pick whichever the instance supports; must return labels and related tasks |
+| Tasks in a project | `GET /api/v1/projects/{id}/views/{viewId}/tasks` or `GET /api/v1/tasks` with `filter=project in …` | Confirmed in v2.7.0's OpenAPI: the global list is `/tasks` (there is no `/tasks/all`). Must return labels and related tasks |
+| Views | `GET /api/v1/projects/{project}/views` | Confirmed. `view_kind` is `list`, `gantt`, `table`, or `kanban`; Kanban views carry `done_bucket_id` and `default_bucket_id` |
+| Buckets | `GET /api/v1/projects/{id}/views/{view}/buckets` | Confirmed. Buckets have `id`, `title`, `position`, `project_view_id` |
 | Labels | `GET /api/v1/labels` | Optional; useful for the hygiene view |
 
 **Fields used from each task**
@@ -105,7 +107,8 @@ Keep `domain/` free of I/O. Every metric in this spec should be computable from 
 
 **Client requirements**
 
-- Paginate with `page` and `per_page` (max the server allows) until the pagination headers say there are no more pages.
+- Paginate with `page` and `per_page` (max the server allows, read from `/info`'s `max_items_per_page`; 50 by default) until the pagination headers say there are no more pages. The OpenAPI spec doesn't document the headers; the client reads `x-pagination-total-pages` and falls back to stopping at a short page.
+- Unset dates may arrive as `null` or as Go's zero time (`0001-01-01T00:00:00Z`); both normalize to `null`.
 - Bearer auth with a Vikunja API token scoped read-only to projects, tasks, and labels.
 - Full resync on an interval (default 5 minutes) plus a manual refresh endpoint. At \~1k tasks a full resync is cheap; skip incremental sync in v1.
 - Treat a zod validation failure as a hard error with a clear log line naming the field, not a silent partial dashboard.
