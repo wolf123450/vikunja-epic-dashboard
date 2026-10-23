@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+data
+.git
+.github
+.githooks
+.env*
+!.env.example
+*.pdf

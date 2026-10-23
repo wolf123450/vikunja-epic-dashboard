@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# env files: only the example is committed
+.env*
+!.env.example
+
+# SQLite snapshots
+data/
+*.sqlite
+*.db
+
+# local source copy of the spec (SPEC.md + docs/mockups.pdf are the tracked versions)
+/Vikunja Epic Dashboard*.pdf
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
