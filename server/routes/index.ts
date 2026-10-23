@@ -69,6 +69,11 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: err.message } satisfies ErrorResponse);
+    // Fastify's own client errors (bad JSON body, empty body with a JSON content type, ...) carry a 4xx statusCode.
+    const status = (err as { statusCode?: unknown } | null)?.statusCode;
+    if (typeof status === 'number' && status >= 400 && status < 500 && err instanceof Error) {
+      return reply.code(status).send({ error: err.message } satisfies ErrorResponse);
+    }
     app.log.error(err);
     return reply.code(500).send({ error: err instanceof Error ? err.message : 'internal error' } satisfies ErrorResponse);
   });

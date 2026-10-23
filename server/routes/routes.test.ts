@@ -249,6 +249,16 @@ describe('after a sync', () => {
     expect(fake.syncsStarted()).toBe(before + 1);
   });
 
+  it("answers Fastify's own 4xx errors with that status instead of 500", async () => {
+    const empty = await app.inject({ method: 'POST', url: '/api/refresh', headers: { 'content-type': 'application/json' }, payload: '' });
+    expect(empty.statusCode).toBe(400);
+    expect(empty.json<{ error: string }>().error).toBeTruthy();
+    const bad = await app.inject({ method: 'POST', url: '/api/refresh', headers: { 'content-type': 'application/json' }, payload: '{nope' });
+    expect(bad.statusCode).toBe(400);
+    const wrongType = await app.inject({ method: 'POST', url: '/api/refresh', headers: { 'content-type': 'text/x-weird' }, payload: 'x' });
+    expect(wrongType.statusCode).toBe(415);
+  });
+
   it('keeps serving the last good model after a failed sync and reports it on /healthz', async () => {
     fake.world.failStatus = 401;
     const res = await app.inject({ method: 'POST', url: '/api/refresh' });
