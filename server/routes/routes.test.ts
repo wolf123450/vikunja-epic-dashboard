@@ -61,6 +61,31 @@ describe('before the first sync', () => {
   });
 });
 
+describe('PROJECT_IDS naming a child project', () => {
+  it('roots the child at itself, so the default selection and filters work', async () => {
+    const childConfig = loadConfig({
+      VIKUNJA_API_URL: 'http://vikunja.example',
+      VIKUNJA_TOKEN: 'secret',
+      TZ: 'UTC',
+      PROJECT_IDS: '2',
+    });
+    const childSyncer = new Syncer({ config: childConfig, client: fake.client, now: () => NOW, logger: { info() {}, warn() {}, error() {} } });
+    await childSyncer.refresh();
+    const childApp = buildApp({ config: childConfig, syncer: childSyncer, now: () => NOW });
+    const projects = (await childApp.inject('/api/projects')).json<ProjectsResponse>();
+    expect(projects.projects.map((p) => p.id)).toEqual([2]);
+    expect(projects.projects[0]).toMatchObject({ id: 2, rootId: 2 });
+    expect(projects.defaultSelection).toEqual([2]);
+    for (const url of ['/api/epics?projects=2', '/api/hygiene?projects=2', '/api/velocity?projects=2', '/api/epics']) {
+      expect((await childApp.inject(url)).statusCode, url).toBe(200);
+    }
+    const epics = (await childApp.inject('/api/epics?projects=2')).json<EpicsResponse>();
+    expect(epics.epics.find((e) => e.slug === 'foo')).toMatchObject({ key: '2:foo', rootProjectId: 2, rootProjectTitle: 'Alpha Child' });
+    expect(projects.projects[0]!.epicCount).toBe(1);
+    expect((await childApp.inject('/api/epics?projects=1')).statusCode).toBe(400);
+  });
+});
+
 describe('after a sync', () => {
   beforeEach(async () => {
     await syncer.refresh();

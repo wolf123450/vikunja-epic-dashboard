@@ -174,7 +174,7 @@ Four screens plus a project picker. Design for a desktop browser first, but keep
 - Single-select switches the whole dashboard to one project; multi-select combines projects, and each epic then shows its project as a small tag.
 - Type-to-filter in the dropdown; child projects nest under their parent.
 - The selection lives in the URL (`?projects=12,15`) so a filtered view can be bookmarked. Default is every project in `PROJECT_IDS`.
-- Epics are keyed by rollup root plus slug (the parent project when child projects are rolled in), so the same `epic:` label in a parent and its child merges into one epic, while in two unrelated projects it stays two epics.
+- Epics are keyed by rollup root plus slug (the top-most selected ancestor when child projects are rolled in; an ancestor that isn't in `PROJECT_IDS` or its descendants is never climbed to, so a selected child whose parent isn't selected is its own root), so the same `epic:` label in a parent and its child merges into one epic, while in two unrelated projects it stays two epics.
 
 1. **Epic overview (list, home for a project)**
    - One row per epic, sorted by status (In progress, Not started, Done), then by points remaining.

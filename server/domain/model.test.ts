@@ -6,8 +6,8 @@ import { epicTasks, noEpicTasks, rollup } from './rollup.js';
 import { board, cfg, project, vtask } from './testing.js';
 import type { DomainConfig, ProjectData } from './types.js';
 
-const pd = (id: number, tasks: ProjectData['tasks'], b: ProjectData['board'] = null): ProjectData => ({
-  project: project(id),
+const pd = (id: number, tasks: ProjectData['tasks'], b: ProjectData['board'] = null, parent = 0): ProjectData => ({
+  project: project(id, parent),
   tasks,
   board: b,
 });
@@ -39,11 +39,22 @@ describe('buildModel: roots', () => {
   const projects = [project(1), project(2, 1), project(3, 2), project(10)];
 
   it('rolls descendants up to the top-most ancestor', () => {
-    const m = buildModel([pd(3, [vtask(1, { project: 3 })])], projects, cfg);
+    const m = buildModel([pd(1, []), pd(2, [], null, 1), pd(3, [vtask(1, { project: 3 })], null, 2), pd(10, [])], projects, cfg);
     expect(m.rootOf.get(3)).toBe(1);
     expect(m.rootOf.get(2)).toBe(1);
     expect(m.rootOf.get(10)).toBe(10);
     expect(m.tasks[0]!.rootProjectId).toBe(1);
+  });
+
+  it('does not climb through ancestors that are not selected', () => {
+    // 3 -> 2 -> 1, but only 3 and 2 are fetched: 2 is the top-most selected ancestor.
+    const m = buildModel([pd(2, [], null, 1), pd(3, [vtask(1, { project: 3 })], null, 2)], projects, cfg);
+    expect(m.rootOf.get(3)).toBe(2);
+    expect(m.rootOf.has(1)).toBe(false);
+    expect(m.tasks[0]!.rootProjectId).toBe(2);
+    const lone = buildModel([pd(3, [vtask(1, { project: 3 })], null, 2)], projects, cfg);
+    expect(lone.rootOf.get(3)).toBe(3);
+    expect(lone.tasks[0]!.rootProjectId).toBe(3);
   });
 
   it('keeps projects as their own root when child projects are not included', () => {
@@ -74,7 +85,7 @@ describe('buildModel: label epics', () => {
     const m = buildModel(
       [
         pd(1, [vtask(1, { labels: ['epic:shared'] })]),
-        pd(2, [vtask(2, { project: 2, labels: ['epic:shared'] })]),
+        pd(2, [vtask(2, { project: 2, labels: ['epic:shared'] })], null, 1),
         pd(5, [vtask(3, { project: 5, labels: ['epic:shared'] })]),
       ],
       projects,
@@ -208,7 +219,7 @@ describe('buildModel: buckets', () => {
     const m = buildModel(
       [
         pd(1, [vtask(1)], rootBoard),
-        pd(2, [vtask(2, { project: 2 }), vtask(3, { project: 2, done: true })], childBoard),
+        pd(2, [vtask(2, { project: 2 }), vtask(3, { project: 2, done: true })], childBoard, 1),
       ],
       projects,
       cfg,
@@ -226,14 +237,14 @@ describe('buildModel: buckets', () => {
   it('marks a bucket done when a child board only has it as done bucket', () => {
     const rootBoard = board(1, [[10, 'Todo'], [11, 'Finished']], [], 0);
     const childBoard = board(2, [[20, 'finished']], [], 20);
-    const m = buildModel([pd(1, [], rootBoard), pd(2, [], childBoard)], projects, cfg);
+    const m = buildModel([pd(1, [], rootBoard), pd(2, [], childBoard, 1)], projects, cfg);
     expect(m.buckets.get(1)!.find((b) => b.key === 'finished')!.isDone).toBe(true);
     expect(m.unmatchedBuckets).toEqual([]);
   });
 
   it('uses the first child board as the buckets when the root has none, without flagging', () => {
     const m = buildModel(
-      [pd(1, []), pd(2, [], board(2, [[20, 'A'], [21, 'B']])), pd(3, [], board(3, [[30, 'b'], [31, 'C']]))],
+      [pd(1, []), pd(2, [], board(2, [[20, 'A'], [21, 'B']]), 1), pd(3, [], board(3, [[30, 'b'], [31, 'C']]), 1)],
       projects,
       cfg,
     );
