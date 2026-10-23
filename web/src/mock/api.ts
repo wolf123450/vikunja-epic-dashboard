@@ -21,8 +21,7 @@ import {
 // Read once at load so it survives in-app navigation, which drops unrelated query params.
 const mockErrorMode = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('mockError');
 
-let lastSuccessAt = '2026-06-15T08:00:00.000Z';
-let refreshCount = 0;
+let lastSuccessAt = new Date(Date.now() - 12 * 60_000).toISOString();
 
 function sync(): SyncStatus {
   return {
@@ -79,7 +78,6 @@ export function mockGetHygiene(): Promise<HygieneResponse> {
 }
 
 export async function mockRefresh(): Promise<SyncStatus> {
-  refreshCount++;
-  lastSuccessAt = new Date(Date.UTC(2026, 5, 15, 8, 0) + refreshCount * 60_000).toISOString();
+  lastSuccessAt = new Date().toISOString();
   return delay(sync());
 }
