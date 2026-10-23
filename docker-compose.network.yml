@@ -1,0 +1,11 @@
+# Optional override: join Vikunja's existing Docker network (same host).
+# Set VIKUNJA_NETWORK to its name (find it with `docker network ls`).
+services:
+  dashboard:
+    networks:
+      - vikunja
+
+networks:
+  vikunja:
+    external: true
+    name: ${VIKUNJA_NETWORK:-vikunja_default}

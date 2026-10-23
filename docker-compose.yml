@@ -1,6 +1,7 @@
-# Runs the dashboard next to an existing Vikunja container.
-# Set VIKUNJA_NETWORK (in .env or your shell) to the name of Vikunja's Docker network.
-# Find it with: docker network ls
+# Runs the dashboard. Works anywhere VIKUNJA_API_URL is reachable (e.g. a LAN address).
+# If Vikunja runs in Docker on the same host, also apply docker-compose.network.yml to join
+# its network and use http://vikunja:3456 as VIKUNJA_API_URL:
+#   docker compose -f docker-compose.yml -f docker-compose.network.yml up -d --build
 services:
   dashboard:
     build: .
@@ -10,16 +11,9 @@ services:
     environment:
       DATA_DIR: /data
     ports:
-      - "8080:8080"
+      - "${DASHBOARD_PORT:-8080}:8080"
     volumes:
       - dashboard-data:/data
-    networks:
-      - vikunja
 
 volumes:
   dashboard-data:
-
-networks:
-  vikunja:
-    external: true
-    name: ${VIKUNJA_NETWORK:-vikunja_default}

@@ -249,7 +249,7 @@ All configuration is environment variables, validated with zod at startup; the a
 **Deployment**
 
 - Multi-stage Dockerfile: build the SPA and server, ship a slim Node runtime image running as a non-root user.
-- Provide a `docker-compose.yml` snippet that joins the same network as Vikunja and mounts `/data`.
+- Provide a `docker-compose.yml` that mounts `/data` and reaches Vikunja at `VIKUNJA_API_URL`, plus an optional `docker-compose.network.yml` override that joins Vikunja's Docker network when both run on the same host.
 - `GET /healthz` returns 200 when the last sync succeeded within 3 intervals, else 503 with the reason.
 
 **Security**

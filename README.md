@@ -31,17 +31,20 @@ Put the token in `VIKUNJA_TOKEN` in your `.env` file. Do not commit that file.
 
 ## Deploy with Docker Compose
 
-Run the dashboard on the same Docker network as Vikunja.
-
-1. Copy `.env.example` to `.env`. Set `VIKUNJA_API_URL` (for example `http://vikunja:3456`) and `VIKUNJA_TOKEN`.
-2. Find Vikunja's network name with `docker network ls`. Set `VIKUNJA_NETWORK` in `.env` to that name. The default is `vikunja_default`.
-3. Start it:
+1. Copy `.env.example` to `.env`. Set `VIKUNJA_API_URL` to an address the container can reach, for example `http://10.0.0.5:3456`, and set `VIKUNJA_TOKEN`.
+2. Start it:
 
    ```bash
    docker compose up -d --build
    ```
 
-4. Open `http://<host>:8080`.
+3. **Vikunja in Docker on the same host?** Join its network instead of going through a LAN address. Find the network name with `docker network ls`, set `VIKUNJA_NETWORK` in `.env` (default `vikunja_default`), set `VIKUNJA_API_URL=http://vikunja:3456`, and apply the override file:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.network.yml up -d --build
+   ```
+
+4. Open `http://<host>:8080` (change the host port with `DASHBOARD_PORT`).
 
 Daily snapshots are stored in `/data/snapshots.db`. The compose file keeps `/data` in the named volume `dashboard-data`. Back up this volume to keep exact burn-up history. The image runs as the non-root `node` user and has a health check on `GET /healthz`.
 
@@ -71,7 +74,8 @@ All settings are environment variables. The app validates them at startup and re
 | `DATA_DIR` | `/data` | SQLite location (mount a volume) |
 | `KANBAN_VIEW_ID` | first Kanban view | Kanban view for the epic card buckets, as `projectId:viewId` pairs |
 | `BUCKET_COLORS` | palette by position | Optional `bucketName:#hex` overrides |
-| `VIKUNJA_NETWORK` | `vikunja_default` | Compose only: name of Vikunja's Docker network |
+| `VIKUNJA_NETWORK` | `vikunja_default` | Compose only, with `docker-compose.network.yml`: name of Vikunja's Docker network |
+| `DASHBOARD_PORT` | `8080` | Compose only: host port |
 
 ## Development
 
