@@ -76,11 +76,24 @@ export type DailySnapshotOptions = {
   log: { info: (msg: string) => void; error: (msg: string, err?: unknown) => void };
 };
 
-/** Run now if today has no snapshot, then at every daily `snapshotTime`. Errors are logged, not thrown. */
+/** How long to wait before retrying a failed run for the same date. */
+export const RETRY_DELAY_MS = 10 * 60_000;
+
+/**
+ * Run now if today has no snapshot, then at every daily `snapshotTime`. Errors are logged, not
+ * thrown. A failed run (e.g. no synced model yet) is retried for the same date every
+ * RETRY_DELAY_MS while hasDay(date) is still false and the next scheduled run is not due yet.
+ */
 export function startDailySnapshots(opts: DailySnapshotOptions): { stop(): void } {
   const now = opts.now ?? (() => new Date());
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
+
+  const clearRetry = (): void => {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = undefined;
+  };
 
   const runSafe = async (date: string): Promise<void> => {
     try {
@@ -88,12 +101,19 @@ export function startDailySnapshots(opts: DailySnapshotOptions): { stop(): void 
       opts.log.info(`snapshot written for ${date}`);
     } catch (err) {
       opts.log.error(`snapshot for ${date} failed`, err);
+      if (stopped || opts.hasDay(date)) return;
+      if (RETRY_DELAY_MS >= msUntilNext(opts.snapshotTime, opts.tz, now())) return; // next scheduled run comes first
+      retryTimer = setTimeout(() => {
+        retryTimer = undefined;
+        if (!stopped && !opts.hasDay(date)) void runSafe(date);
+      }, RETRY_DELAY_MS);
     }
   };
 
   const arm = (): void => {
     if (stopped) return;
     timer = setTimeout(() => {
+      clearRetry();
       void runSafe(localDate(now(), opts.tz)).finally(arm);
     }, msUntilNext(opts.snapshotTime, opts.tz, now()));
   };
@@ -106,6 +126,7 @@ export function startDailySnapshots(opts: DailySnapshotOptions): { stop(): void 
     stop() {
       stopped = true;
       if (timer) clearTimeout(timer);
+      clearRetry();
     },
   };
 }

@@ -14,7 +14,13 @@ export type SnapshotsHook = {
 /** Connects the SQLite store and daily scheduler to the server's snapshot hook point. */
 export function createSnapshotsHook(
   store: SnapshotStore,
-  opts: { snapshotTime: string; tz: string; log: Log },
+  opts: {
+    snapshotTime: string;
+    tz: string;
+    log: Log;
+    /** False when the last successful sync is older than 3 sync intervals (the model is stale). */
+    isFresh?: () => boolean;
+  },
 ): SnapshotsHook {
   return {
     rowsForEpic: (projectId, epicSlug) => store.rowsForEpic(projectId, epicSlug),
@@ -26,6 +32,9 @@ export function createSnapshotsHook(
         run: async (date) => {
           const model = getModel();
           if (!model) throw new Error('no synced data yet; snapshot skipped');
+          if (opts.isFresh && !opts.isFresh()) {
+            throw new Error('last successful sync is older than 3 sync intervals; snapshot skipped (will retry)');
+          }
           const rows = snapshotRows(model, date);
           store.replaceDay(date, rows);
           opts.log.info(`snapshot ${date}: ${rows.length} rows`);

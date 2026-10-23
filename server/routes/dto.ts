@@ -74,7 +74,7 @@ export function noEpicDTO(
 
 /**
  * Union of the roots' buckets merged by key: first root's order, then new keys. Colours come
- * from the first occurrence's own position, so a bucket keeps its colour across selections.
+ * from the merged display index, so buckets from different roots never share a palette slot.
  */
 export function mergedBuckets(
   model: Model,
@@ -95,7 +95,7 @@ export function mergedBuckets(
       key: b.key,
       name: b.name,
       position: i,
-      color: bucketColor({ key: b.key, position: b.position, isDone }, overrides),
+      color: bucketColor({ key: b.key, position: i, isDone }, overrides),
       isDone,
     };
   });

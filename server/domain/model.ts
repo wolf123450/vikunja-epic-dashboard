@@ -19,11 +19,13 @@ function addFlag(task: Task, flag: Flag): void {
   if (!task.flags.some((f) => f.type === flag.type && f.detail === flag.detail)) task.flags.push(flag);
 }
 
-/** Project id -> rollup root id. Top-most ancestor found in the project list when rolling up. */
-function computeRoots(data: ProjectData[], allProjects: VikunjaProject[], cfg: DomainConfig): Map<number, number> {
+/**
+ * Project id -> rollup root id. The root is the top-most ancestor that is itself in `data` (the
+ * selected/fetched projects), so a selected child whose parent isn't selected is its own root.
+ */
+function computeRoots(data: ProjectData[], cfg: DomainConfig): Map<number, number> {
   const byId = new Map<number, VikunjaProject>();
-  for (const p of allProjects) byId.set(p.id, p);
-  for (const d of data) if (!byId.has(d.project.id)) byId.set(d.project.id, d.project);
+  for (const d of data) byId.set(d.project.id, d.project);
 
   const rootOf = new Map<number, number>();
   for (const p of byId.values()) {
@@ -82,7 +84,9 @@ function computeBuckets(data: ProjectData[], rootOf: Map<number, number>): Map<n
 
 /**
  * Normalize fetched data into the domain model:
- * - rollup roots from project ancestry (allProjects) when cfg.includeChildProjects
+ * - rollup roots from project ancestry when cfg.includeChildProjects, climbing only through the
+ *   projects in `data` (selected/fetched), never through unselected ancestors. `allProjects` is
+ *   accepted for call-site compatibility and not used for roots.
  * - points and flags per task (parsePoints)
  * - epics per cfg.epicMode: label epics, parent epics (marker label + recursive subtasks,
  *   cycle-safe), and 'both' merging by slug (see SPEC.md "Merging in both mode"); epics are
@@ -95,8 +99,8 @@ function computeBuckets(data: ProjectData[], rootOf: Map<number, number>): Map<n
  * cfg.epicParentPoints is true. They get no 'no-epic' flag, and no 'unpointed-open' flag unless
  * epicParentPoints is true (their points aren't counted otherwise).
  */
-export function buildModel(data: ProjectData[], allProjects: VikunjaProject[], cfg: DomainConfig): Model {
-  const rootOf = computeRoots(data, allProjects, cfg);
+export function buildModel(data: ProjectData[], _allProjects: VikunjaProject[], cfg: DomainConfig): Model {
+  const rootOf = computeRoots(data, cfg);
   const rootFor = (projectId: number) => rootOf.get(projectId) ?? projectId;
 
   const useLabels = cfg.epicMode === 'label' || cfg.epicMode === 'both';

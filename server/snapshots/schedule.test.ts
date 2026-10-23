@@ -92,13 +92,84 @@ describe('startDailySnapshots', () => {
 
   it('logs errors and keeps scheduling', async () => {
     vi.setSystemTime(new Date('2026-10-23T18:00:00Z'));
-    const run = vi.fn().mockRejectedValueOnce(new Error('boom')).mockResolvedValue(undefined);
-    const job = startDailySnapshots({ snapshotTime: '03:00', tz: TZ, run, hasDay: () => false, log });
+    let stored = false;
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockImplementation(async () => {
+        stored = true;
+      });
+    const job = startDailySnapshots({ snapshotTime: '03:00', tz: TZ, run, hasDay: () => stored, log });
     await vi.advanceTimersByTimeAsync(0);
     expect(log.error).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(16 * H);
+    await vi.advanceTimersByTimeAsync(10 * 60_000); // retry for today succeeds
+    expect(run).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(16 * H); // the next scheduled run still happens
+    expect(run).toHaveBeenCalledTimes(3);
+    expect(run).toHaveBeenLastCalledWith('2026-10-24');
+    job.stop();
+  });
+
+  it('retries a failed run for the same date every 10 minutes until it succeeds', async () => {
+    vi.setSystemTime(new Date('2026-10-23T18:00:00Z')); // 11:00 PDT
+    let stored = false;
+    const run = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('no synced data yet'))
+      .mockRejectedValueOnce(new Error('still no data'))
+      .mockImplementation(async () => {
+        stored = true;
+      });
+    const job = startDailySnapshots({ snapshotTime: '03:00', tz: TZ, run, hasDay: () => stored, log });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(run).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10 * 60_000 - 1);
+    expect(run).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(run).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(run).toHaveBeenCalledTimes(3);
+    expect(run.mock.calls.map((c) => c[0])).toEqual(['2026-10-23', '2026-10-23', '2026-10-23']);
+
+    await vi.advanceTimersByTimeAsync(2 * H); // stored: no more retries
+    expect(run).toHaveBeenCalledTimes(3);
+    job.stop();
+  });
+
+  it('stops retrying once the day appears in the store or the next scheduled run is due', async () => {
+    vi.setSystemTime(new Date('2026-10-23T18:00:00Z'));
+    let stored = false;
+    const run = vi.fn().mockRejectedValue(new Error('down'));
+    const job = startDailySnapshots({ snapshotTime: '03:00', tz: TZ, run, hasDay: () => stored, log });
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(run).toHaveBeenCalledTimes(2);
+    stored = true; // e.g. written elsewhere
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
     expect(run).toHaveBeenCalledTimes(2);
     job.stop();
+  });
+
+  it('does not retry when the next scheduled run is less than 10 minutes away', async () => {
+    vi.setSystemTime(new Date('2026-10-23T09:55:00Z')); // 02:55 PDT, 5 min before 03:00
+    const run = vi.fn().mockRejectedValue(new Error('down'));
+    const job = startDailySnapshots({ snapshotTime: '03:00', tz: TZ, run, hasDay: () => false, log });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(run).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5 * 60_000); // scheduled run at 03:00 (fails again, too)
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(run).toHaveBeenLastCalledWith('2026-10-23');
+    job.stop();
+  });
+
+  it('stop() cancels a pending retry', async () => {
+    vi.setSystemTime(new Date('2026-10-23T18:00:00Z'));
+    const run = vi.fn().mockRejectedValue(new Error('down'));
+    const job = startDailySnapshots({ snapshotTime: '03:00', tz: TZ, run, hasDay: () => false, log });
+    await vi.advanceTimersByTimeAsync(0);
+    job.stop();
+    await vi.advanceTimersByTimeAsync(H);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it('stop() cancels future runs', async () => {

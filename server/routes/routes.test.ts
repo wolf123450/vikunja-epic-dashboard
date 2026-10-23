@@ -61,6 +61,31 @@ describe('before the first sync', () => {
   });
 });
 
+describe('PROJECT_IDS naming a child project', () => {
+  it('roots the child at itself, so the default selection and filters work', async () => {
+    const childConfig = loadConfig({
+      VIKUNJA_API_URL: 'http://vikunja.example',
+      VIKUNJA_TOKEN: 'secret',
+      TZ: 'UTC',
+      PROJECT_IDS: '2',
+    });
+    const childSyncer = new Syncer({ config: childConfig, client: fake.client, now: () => NOW, logger: { info() {}, warn() {}, error() {} } });
+    await childSyncer.refresh();
+    const childApp = buildApp({ config: childConfig, syncer: childSyncer, now: () => NOW });
+    const projects = (await childApp.inject('/api/projects')).json<ProjectsResponse>();
+    expect(projects.projects.map((p) => p.id)).toEqual([2]);
+    expect(projects.projects[0]).toMatchObject({ id: 2, rootId: 2 });
+    expect(projects.defaultSelection).toEqual([2]);
+    for (const url of ['/api/epics?projects=2', '/api/hygiene?projects=2', '/api/velocity?projects=2', '/api/epics']) {
+      expect((await childApp.inject(url)).statusCode, url).toBe(200);
+    }
+    const epics = (await childApp.inject('/api/epics?projects=2')).json<EpicsResponse>();
+    expect(epics.epics.find((e) => e.slug === 'foo')).toMatchObject({ key: '2:foo', rootProjectId: 2, rootProjectTitle: 'Alpha Child' });
+    expect(projects.projects[0]!.epicCount).toBe(1);
+    expect((await childApp.inject('/api/epics?projects=1')).statusCode).toBe(400);
+  });
+});
+
 describe('after a sync', () => {
   beforeEach(async () => {
     await syncer.refresh();
@@ -163,6 +188,22 @@ describe('after a sync', () => {
     expect(body.burnup.some((p) => p.source === 'snapshot')).toBe(true);
   });
 
+  it("replaces today's burn-up point with the live rollup, marked snapshot only when snapshots exist", async () => {
+    const live = { scopePoints: 11, donePoints: 3, scopeTasks: 3, doneTasks: 1 };
+    const without = await get<EpicDetailResponse>('/api/epics/1%3Afoo');
+    expect(without.body.burnup.at(-1)).toMatchObject({ date: '2026-10-20', ...live, source: 'reconstructed' });
+
+    // Stale snapshot (two days old, different numbers): today still shows the live state.
+    snapshotRows = [
+      { date: '2026-10-18', projectId: 1, epicSlug: 'foo', pointsTotal: 5, pointsDone: 0, tasksTotal: 2, tasksDone: 0, unpointedOpen: 1 },
+    ];
+    const withSnap = await get<EpicDetailResponse>('/api/epics/1%3Afoo');
+    const byDate = Object.fromEntries(withSnap.body.burnup.map((p) => [p.date, p]));
+    expect(byDate['2026-10-18']).toMatchObject({ scopePoints: 5, source: 'snapshot' });
+    expect(byDate['2026-10-19']).toMatchObject({ source: 'reconstructed' });
+    expect(byDate['2026-10-20']).toMatchObject({ ...live, source: 'snapshot' });
+  });
+
   it('serves the No-epic detail and 404s unknown epics', async () => {
     const ok = await get<EpicDetailResponse>('/api/epics/1%3A');
     expect(ok.code).toBe(200);
@@ -206,6 +247,16 @@ describe('after a sync', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json<SyncStatus>()).toMatchObject({ error: null, syncing: false, lastSuccessAt: NOW.toISOString() });
     expect(fake.syncsStarted()).toBe(before + 1);
+  });
+
+  it("answers Fastify's own 4xx errors with that status instead of 500", async () => {
+    const empty = await app.inject({ method: 'POST', url: '/api/refresh', headers: { 'content-type': 'application/json' }, payload: '' });
+    expect(empty.statusCode).toBe(400);
+    expect(empty.json<{ error: string }>().error).toBeTruthy();
+    const bad = await app.inject({ method: 'POST', url: '/api/refresh', headers: { 'content-type': 'application/json' }, payload: '{nope' });
+    expect(bad.statusCode).toBe(400);
+    const wrongType = await app.inject({ method: 'POST', url: '/api/refresh', headers: { 'content-type': 'text/x-weird' }, payload: 'x' });
+    expect(wrongType.statusCode).toBe(415);
   });
 
   it('keeps serving the last good model after a failed sync and reports it on /healthz', async () => {

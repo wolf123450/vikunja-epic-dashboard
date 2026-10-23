@@ -16,10 +16,10 @@ import type {
   VelocityResponse,
 } from '../../shared/api.js';
 import type { Config } from '../config.js';
-import { mergeBurnup } from '../domain/snapshot-merge.js';
+import { mergeBurnup, withLiveToday } from '../domain/snapshot-merge.js';
 import { reconstructBurnup } from '../domain/burnup.js';
 import { compareRollups, epicTasks, noEpicTasks, rollup } from '../domain/rollup.js';
-import { forecast, velocity } from '../domain/velocity.js';
+import { calendarDate, forecast, velocity } from '../domain/velocity.js';
 import type { Model, SnapshotRow, Task } from '../domain/types.js';
 import type { Syncer } from '../sync/syncer.js';
 import { epicDTO, mergedBuckets, noEpicDTO, rollupDTO, taskDTO } from './dto.js';
@@ -69,6 +69,11 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: err.message } satisfies ErrorResponse);
+    // Fastify's own client errors (bad JSON body, empty body with a JSON content type, ...) carry a 4xx statusCode.
+    const status = (err as { statusCode?: unknown } | null)?.statusCode;
+    if (typeof status === 'number' && status >= 400 && status < 500 && err instanceof Error) {
+      return reply.code(status).send({ error: err.message } satisfies ErrorResponse);
+    }
     app.log.error(err);
     return reply.code(500).send({ error: err instanceof Error ? err.message : 'internal error' } satisfies ErrorResponse);
   });
@@ -168,7 +173,13 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   const epicDetail = async (model: Model, key: string): Promise<EpicDetailResponse> => {
     const { root, slug, members, dto } = resolveEpic(model, key);
-    const burnup = mergeBurnup(reconstructBurnup(members, config.tz, now()), await snapshotRows(root, slug));
+    const rows = await snapshotRows(root, slug);
+    const burnup = withLiveToday(
+      mergeBurnup(reconstructBurnup(members, config.tz, now()), rows),
+      rollup(members),
+      calendarDate(now(), config.tz),
+      rows.length > 0,
+    );
     return {
       epic: dto,
       buckets: mergedBuckets(model, [root], config.bucketColors),
