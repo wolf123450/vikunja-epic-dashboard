@@ -112,4 +112,37 @@ describe('VikunjaClient', () => {
     expect((err as VikunjaHttpError).status).toBe(401);
     expect((err as Error).message).toMatch(/revoked, expired/);
   });
+
+  it('aborts a hung request after the timeout and names the endpoint', async () => {
+    let signal: AbortSignal | undefined;
+    const hung = ((_input: string | URL | Request, init?: RequestInit) => {
+      signal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+      });
+    }) as typeof fetch;
+    const client = new VikunjaClient({ baseUrl: 'http://vk', token: 't', fetch: hung, timeoutMs: 20 });
+    await expect(client.info()).rejects.toThrow(/GET \/info: timed out after 0\.02s/);
+    expect(signal).toBeDefined();
+  });
+
+  it('defaults to a 30 s timeout signal', async () => {
+    let signal: AbortSignal | undefined;
+    const fn = (async (_i: string | URL | Request, init?: RequestInit) => {
+      signal = init?.signal ?? undefined;
+      return new Response(JSON.stringify({ version: 'v2.7.0', max_items_per_page: 50 }));
+    }) as typeof fetch;
+    await new VikunjaClient({ baseUrl: 'http://vk', token: 't', fetch: fn }).info();
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal!.aborted).toBe(false);
+  });
+
+  it('wraps a non-JSON success body in an error naming the endpoint and status', async () => {
+    const html = (async () => new Response('<html>Login</html>', { status: 200, headers: { 'content-type': 'text/html' } })) as typeof fetch;
+    const client = new VikunjaClient({ baseUrl: 'http://vk', token: 't', fetch: html });
+    const err = await client.info().catch((e: unknown) => e as Error);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/GET \/info returned HTTP 200 but the body is not valid JSON/);
+    expect((err as Error).cause).toBeDefined();
+  });
 });

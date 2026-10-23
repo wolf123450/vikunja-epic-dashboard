@@ -52,6 +52,8 @@ export type ClientOptions = {
   fetch?: typeof fetch;
   /** Hard stop for runaway pagination. */
   maxPages?: number;
+  /** Per-request timeout in ms, covering headers and body. Default 30 000. */
+  timeoutMs?: number;
 };
 
 type Query = Record<string, string | number | boolean | undefined>;
@@ -61,6 +63,7 @@ export class VikunjaClient {
   private readonly token: string;
   private readonly fetchFn: typeof fetch;
   private readonly maxPages: number;
+  private readonly timeoutMs: number;
   private perPage = 50;
 
   constructor(opts: ClientOptions) {
@@ -69,6 +72,7 @@ export class VikunjaClient {
     this.token = opts.token;
     this.fetchFn = opts.fetch ?? fetch;
     this.maxPages = opts.maxPages ?? 1000;
+    this.timeoutMs = opts.timeoutMs ?? 30_000;
   }
 
   /** Fetch server info and adopt its page-size limit. Call once before paginated reads. */
@@ -141,12 +145,18 @@ export class VikunjaClient {
     for (const [k, v] of Object.entries(query)) if (v !== undefined) url.searchParams.set(k, String(v));
     const endpoint = `GET ${path}`;
 
+    const signal = AbortSignal.timeout(this.timeoutMs);
+    const timedOut = () => new Error(`Vikunja ${endpoint}: timed out after ${this.timeoutMs / 1000}s`);
+    const isTimeout = (err: unknown) => signal.aborted || (err as Error)?.name === 'TimeoutError';
+
     let res: Response;
     try {
       res = await this.fetchFn(url, {
         headers: { Authorization: `Bearer ${this.token}`, Accept: 'application/json' },
+        signal,
       });
     } catch (err) {
+      if (isTimeout(err)) throw timedOut();
       throw new Error(`Vikunja ${endpoint}: request failed: ${(err as Error).message}`, { cause: err });
     }
     if (!res.ok) {
@@ -154,7 +164,16 @@ export class VikunjaClient {
       throw new VikunjaHttpError(endpoint, res.status, body.slice(0, 200) || res.statusText);
     }
 
-    const json: unknown = await res.json();
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch (err) {
+      if (isTimeout(err)) throw timedOut();
+      throw new Error(
+        `Vikunja ${endpoint} returned HTTP ${res.status} but the body is not valid JSON (is the URL pointing at a proxy or login page?): ${(err as Error).message}`,
+        { cause: err },
+      );
+    }
     const parsed = schema.safeParse(json);
     if (!parsed.success) throw new VikunjaSchemaError(endpoint, parsed.error.issues);
     return { data: parsed.data, headers: res.headers };
