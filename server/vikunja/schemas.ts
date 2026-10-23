@@ -70,14 +70,25 @@ export const projectSchema = z.object({
   views: z.array(viewSchema).nullable().optional().transform((v) => v ?? []),
 });
 
-export const bucketSchema = z.object({
+/**
+ * A bucket as returned by GET /projects/{id}/views/{kanbanView}/tasks. Despite the OpenAPI
+ * spec saying Task[], Kanban views return buckets, each with at most one page of its tasks
+ * nested and `count` giving the bucket's full size. Only task ids are needed from them.
+ */
+export const kanbanBucketSchema = z.object({
   id: z.number().int(),
   title: z.string(),
   position: z.number(),
   project_view_id: z.number().int(),
-  count: z.number().int().optional(),
-  tasks: z.array(taskSchema).nullable().optional().transform((v) => v ?? []),
+  count: z.number().int(),
+  tasks: z
+    .array(z.object({ id: z.number().int() }))
+    .nullable()
+    .optional()
+    .transform((v) => v ?? []),
 });
+
+export const taskIdSchema = z.object({ id: z.number().int() });
 
 export const infoSchema = z.object({
   version: z.string(),
@@ -88,5 +99,5 @@ export type VikunjaLabel = z.output<typeof labelSchema>;
 export type VikunjaTask = z.output<typeof taskSchema>;
 export type VikunjaView = z.output<typeof viewSchema>;
 export type VikunjaProject = z.output<typeof projectSchema>;
-export type VikunjaBucket = z.output<typeof bucketSchema>;
+export type VikunjaKanbanBucket = z.output<typeof kanbanBucketSchema>;
 export type VikunjaInfo = z.output<typeof infoSchema>;

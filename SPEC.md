@@ -85,10 +85,10 @@ Keep `domain/` free of I/O. Every metric in this spec should be computable from 
 | Purpose | Expected endpoint | Notes |
 | --- | --- | --- |
 | Server version | `GET /api/v1/info` | Log it at startup; warn if outside the tested range (target: v2.7.0) |
-| Projects | `GET /api/v1/projects` | Include child projects when `INCLUDE_CHILD_PROJECTS=true` |
+| Projects | `GET /api/v1/projects` | Include child projects when `INCLUDE_CHILD_PROJECTS=true`. The list also contains pseudo-projects with negative ids (e.g. `-2`, Favorites); drop them |
 | Tasks in a project | `GET /api/v1/projects/{id}/views/{viewId}/tasks` or `GET /api/v1/tasks` with `filter=project in …` | Confirmed in v2.7.0's OpenAPI: the global list is `/tasks` (there is no `/tasks/all`). Must return labels and related tasks |
 | Views | `GET /api/v1/projects/{project}/views` | Confirmed. `view_kind` is `list`, `gantt`, `table`, or `kanban`; Kanban views carry `done_bucket_id` and `default_bucket_id` |
-| Buckets | `GET /api/v1/projects/{id}/views/{view}/buckets` | Confirmed. Buckets have `id`, `title`, `position`, `project_view_id` |
+| Buckets | Kanban view's task listing (see Kanban buckets below) | `GET /api/v1/projects/{id}/views/{view}/buckets` exists but needs an extra token scope, and the view listing already carries `id`, `title`, `position`, `count` |
 | Labels | `GET /api/v1/labels` | Optional; useful for the hygiene view |
 
 **Fields used from each task**
@@ -101,7 +101,7 @@ Keep `domain/` free of I/O. Every metric in this spec should be computable from 
 **Kanban buckets (for the epic cards view)**
 
 - Buckets belong to a project's Kanban view, not to the project. Use the view named by `KANBAN_VIEW_ID`, else the project's first Kanban view.
-- Fetch the bucket list (name, position) and each task's bucket for that view. The Kanban view's task listing may return buckets with their tasks nested, which gives both in one call; verify against the OpenAPI spec.
+- Fetch the bucket list (name, position) and each task's bucket for that view. Confirmed on v2.7.0 (the OpenAPI spec is wrong here and says `Task[]`): the Kanban view's task listing returns buckets, each with at most one page of tasks nested and a `count` of its full size. Buckets whose nested tasks are complete need no further request; larger ones are paged in with `filter=bucket_id = <id>` on the same view, which returns a flat, paginated task list. `GET /tasks` always reports `bucket_id: 0`, so membership must come from the view. `GET …/buckets` is not used, because it needs an extra token scope.
 - With `INCLUDE_CHILD_PROJECTS=true`, child projects have their own buckets: match them to the parent's buckets by name, case-insensitive. Unmatched buckets are appended after the parent's and flagged in the hygiene view.
 - Add `bucket: { id: number; name: string; position: number } | null` to the normalized `Task`.
 

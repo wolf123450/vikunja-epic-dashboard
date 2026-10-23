@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import {
-  bucketSchema,
   infoSchema,
+  kanbanBucketSchema,
   labelSchema,
   projectSchema,
+  taskIdSchema,
   taskSchema,
   viewSchema,
   type VikunjaInfo,
@@ -77,16 +78,30 @@ export class VikunjaClient {
     return data;
   }
 
-  projects(opts: { includeArchived?: boolean } = {}) {
-    return this.getAll('/projects', projectSchema, { is_archived: opts.includeArchived });
+  /** Real projects only: Vikunja also lists pseudo-projects (e.g. Favorites) with negative ids. */
+  async projects(opts: { includeArchived?: boolean } = {}) {
+    const all = await this.getAll('/projects', projectSchema, { is_archived: opts.includeArchived });
+    return all.filter((p) => p.id > 0);
   }
 
   async views(projectId: number) {
     return (await this.request(`/projects/${projectId}/views`, z.array(viewSchema))).data;
   }
 
-  async buckets(projectId: number, viewId: number) {
-    return (await this.request(`/projects/${projectId}/views/${viewId}/buckets`, z.array(bucketSchema))).data;
+  /**
+   * Buckets of a Kanban view, with up to one page of task ids nested in each. Read from the
+   * view's task listing rather than GET .../buckets, which needs an extra token scope.
+   */
+  async kanbanBuckets(projectId: number, viewId: number) {
+    const path = `/projects/${projectId}/views/${viewId}/tasks`;
+    return (await this.request(path, z.array(kanbanBucketSchema), { per_page: this.perPage })).data;
+  }
+
+  /** Every task id in one Kanban bucket, paginated. */
+  async bucketTaskIds(projectId: number, viewId: number, bucketId: number): Promise<number[]> {
+    const path = `/projects/${projectId}/views/${viewId}/tasks`;
+    const tasks = await this.getAll(path, taskIdSchema, { filter: `bucket_id = ${bucketId}` });
+    return tasks.map((t) => t.id);
   }
 
   /** Tasks across every project the token can read. `filter` uses Vikunja's filter syntax. */

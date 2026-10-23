@@ -1,0 +1,66 @@
+{
+  "projectId": 2,
+  "entries": [
+    {
+      "file": "info.json",
+      "path": "/info",
+      "pagination": {}
+    },
+    {
+      "file": "projects.json",
+      "path": "/projects?page=1&per_page=50",
+      "pagination": {
+        "x-pagination-result-count": "3",
+        "x-pagination-total-pages": "1"
+      }
+    },
+    {
+      "file": "views.json",
+      "path": "/projects/2/views",
+      "pagination": {
+        "x-pagination-result-count": "4",
+        "x-pagination-total-pages": "1"
+      }
+    },
+    {
+      "file": "kanban-view-tasks.json",
+      "path": "/projects/2/views/12/tasks?page=1&per_page=50",
+      "pagination": {
+        "x-pagination-result-count": "8",
+        "x-pagination-total-pages": "1"
+      }
+    },
+    {
+      "file": "kanban-bucket-page1.json",
+      "path": "/projects/2/views/12/tasks?filter=bucket_id%20%3D%207&per_page=50&page=1",
+      "pagination": {
+        "x-pagination-result-count": "50",
+        "x-pagination-total-pages": "5"
+      }
+    },
+    {
+      "file": "tasks-page1.json",
+      "path": "/tasks?filter=project%20in%202&per_page=50&page=1",
+      "pagination": {
+        "x-pagination-result-count": "50",
+        "x-pagination-total-pages": "24"
+      }
+    },
+    {
+      "file": "tasks-page2.json",
+      "path": "/tasks?filter=project%20in%202&per_page=50&page=2",
+      "pagination": {
+        "x-pagination-result-count": "50",
+        "x-pagination-total-pages": "24"
+      }
+    },
+    {
+      "file": "labels.json",
+      "path": "/labels?page=1&per_page=50",
+      "pagination": {
+        "x-pagination-result-count": "8",
+        "x-pagination-total-pages": "1"
+      }
+    }
+  ]
+}
