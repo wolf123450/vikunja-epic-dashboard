@@ -15,7 +15,32 @@ export { ApiError } from './api-error';
 const MOCK = import.meta.env.VITE_MOCK === '1';
 const mock = () => import('./mock/api');
 
+const FIRST_SYNC_POLL_MS = 1500;
+const FIRST_SYNC_MAX_WAIT_MS = 120_000;
+
+/**
+ * Like requestOnce, but while the server is still doing its first sync (503 with no success
+ * and no error yet) GETs are retried, so a page opened at startup fills in by itself.
+ */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const deadline = Date.now() + FIRST_SYNC_MAX_WAIT_MS;
+  for (;;) {
+    try {
+      return await requestOnce<T>(path, init);
+    } catch (e) {
+      const firstSyncPending =
+        e instanceof ApiError &&
+        e.status === 503 &&
+        e.sync !== undefined &&
+        e.sync.lastSuccessAt === null &&
+        e.sync.error === null;
+      if (!firstSyncPending || (init?.method ?? 'GET') !== 'GET' || Date.now() > deadline) throw e;
+      await new Promise((r) => setTimeout(r, FIRST_SYNC_POLL_MS));
+    }
+  }
+}
+
+async function requestOnce<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, { ...init, headers: { accept: 'application/json' } });
