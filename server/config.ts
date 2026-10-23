@@ -5,6 +5,11 @@ const csvInts = z
   .transform((s) => s.split(',').map((p) => p.trim()).filter(Boolean))
   .pipe(z.array(z.coerce.number<string>().int().positive()));
 
+const csvPositiveNumbers = z
+  .string()
+  .transform((s) => s.split(',').map((p) => p.trim()).filter(Boolean))
+  .pipe(z.array(z.coerce.number<string>().positive()));
+
 const bool = z
   .enum(['true', 'false', '1', '0'])
   .transform((v) => v === 'true' || v === '1');
@@ -50,9 +55,11 @@ const envSchema = z.object({
   PROJECT_IDS: csvInts.optional(),
   INCLUDE_CHILD_PROJECTS: bool.default(true),
   POINTS_PREFIX: z.string().min(1).default('sp:'),
-  POINTS_ALLOWED: csvInts.default([1, 2, 3, 5, 8, 13, 20, 40]),
+  POINTS_SCALE: csvPositiveNumbers.optional(),
   POINTS_SPLIT_THRESHOLD: z.coerce.number().positive().default(5),
   EPIC_MODE: z.enum(['label', 'parent', 'both']).default('both'),
+  EPIC_ALLOW_OVERLAP: bool.default(true),
+  EPIC_PARENT_POINTS: bool.default(false),
   EPIC_PREFIX: z.string().min(1).default('epic:'),
   EPIC_MARKER_LABEL: z.string().min(1).default('epic'),
   SYNC_INTERVAL_SEC: z.coerce.number().int().min(10).default(300),
@@ -92,9 +99,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     projectIds: c.PROJECT_IDS ?? null,
     includeChildProjects: c.INCLUDE_CHILD_PROJECTS,
     pointsPrefix: c.POINTS_PREFIX.toLowerCase(),
-    pointsAllowed: new Set(c.POINTS_ALLOWED),
+    /** null = no scale; any positive number is accepted without a flag. */
+    pointsScale: c.POINTS_SCALE ?? null,
     pointsSplitThreshold: c.POINTS_SPLIT_THRESHOLD,
     epicMode: c.EPIC_MODE,
+    epicAllowOverlap: c.EPIC_ALLOW_OVERLAP,
+    epicParentPoints: c.EPIC_PARENT_POINTS,
     epicPrefix: c.EPIC_PREFIX.toLowerCase(),
     epicMarkerLabel: c.EPIC_MARKER_LABEL.toLowerCase(),
     syncIntervalSec: c.SYNC_INTERVAL_SEC,

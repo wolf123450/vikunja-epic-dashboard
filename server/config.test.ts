@@ -10,7 +10,9 @@ describe('loadConfig', () => {
     expect(c.vikunjaPublicUrl).toBe('http://vikunja:3456');
     expect(c.projectIds).toBeNull();
     expect(c.includeChildProjects).toBe(true);
-    expect([...c.pointsAllowed]).toEqual([1, 2, 3, 5, 8, 13, 20, 40]);
+    expect(c.pointsScale).toBeNull();
+    expect(c.epicAllowOverlap).toBe(true);
+    expect(c.epicParentPoints).toBe(false);
     expect(c.epicMode).toBe('both');
     expect(c.port).toBe(8080);
     expect(c.pointsSplitThreshold).toBe(5);
@@ -23,7 +25,9 @@ describe('loadConfig', () => {
       INCLUDE_CHILD_PROJECTS: 'false',
       KANBAN_VIEW_ID: '12:34,15:40',
       BUCKET_COLORS: 'In Review:#a855f7',
+      POINTS_SCALE: '0.5, 1, 2, 21, 100',
     });
+    expect(c.pointsScale).toEqual([0.5, 1, 2, 21, 100]);
     expect(c.projectIds).toEqual([12, 15]);
     expect(c.includeChildProjects).toBe(false);
     expect(c.kanbanViewIds.get(15)).toBe(40);

@@ -4,6 +4,10 @@
     "noEmit": true,
     "rootDir": ".."
   },
-  "include": ["./**/*.ts", "../server/**/*.ts"],
+  "include": [
+    "./**/*.ts",
+    "../server/**/*.ts",
+    "../shared/**/*.ts"
+  ],
   "exclude": []
 }

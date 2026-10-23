@@ -26,15 +26,15 @@ All metadata lives in ordinary Vikunja labels and task relations, so it can be b
 
 | Concept | Convention | Example | Rules |
 | --- | --- | --- | --- |
-| Story points | Label `sp:<n>` | `sp:5` | `n` must be in the allowed set (default 1, 2, 3, 5, 8, 13, 20, 40). Unknown values are flagged, not counted. |
+| Story points | Label `sp:<n>` | `sp:5`, `sp: 21`, `sp:0.5` | `n` is any positive number, decimals included; no fixed scale is enforced. A value that isn't a positive number (`sp:big`, `sp:0`) is flagged as invalid and not counted. If the optional `POINTS_SCALE` is set, values off that scale still count but get a soft "off-scale" hygiene flag. |
 | Epic (label mode) | Label `epic:<slug>` | `epic:inventory-system` | A task belongs to every epic label it carries. Display name = slug with dashes replaced by spaces, title-cased. |
-| Epic (parent mode) | Parent task carrying marker label `epic` | Task "Inventory system" + label `epic` | Members = its `subtask` relations, recursively. The parent's own points are ignored by default. |
+| Epic (parent mode) | Parent task carrying marker label `epic` | Task "Inventory system" + label `epic` | Members = its `subtask` relations, recursively. The parent's own points are ignored unless `EPIC_PARENT_POINTS=true`. |
 | Unpointed | Task with no `sp:` label |  | Counted separately, never as 0 points. |
 
 **Edge cases the parser must handle**
 
 - Multiple `sp:` labels on one task: flag as a conflict and use the highest value.
-- A task in both a label-mode and a parent-mode epic: counts toward both; flag only if config disallows overlap.
+- A task in more than one epic: counts toward each; flagged as an overlap only when `EPIC_ALLOW_OVERLAP=false`.
 - Subtask cycles in parent mode: detect and stop recursion; flag the cycle.
 - Label matching is case-insensitive and trims whitespace (`SP:5`, `sp: 5` both parse).
 - Done tasks keep their points; a task reopened after `done_at` counts as open.
@@ -122,7 +122,7 @@ type Task = {
   done: boolean; doneAt: Date | null; createdAt: Date;
   points: number | null;          // null = unpointed
   epicSlugs: string[];            // from labels and/or parent resolution
-  flags: Flag[];                  // conflict, unknown-points, cycle, ...
+  flags: Flag[];                  // conflicting-points, invalid-points, cycle, ... (see server/domain/types.ts)
   url: string;
 };
 type Epic = { slug: string; name: string; source: 'label' | 'parent'; parentTaskId?: number };
@@ -194,7 +194,7 @@ Four screens plus a project picker. Design for a desktop browser first, but keep
    - Burn-up chart: scope line and completed line in points, with a toggle for task counts. The reconstructed period is shaded and labelled "approximate".
    - Member task table: ref, title (links to Vikunja), bucket, points, done/open, done date, flags. Filter by bucket, open/done, and pointed/unpointed.
 4. **Hygiene**
-   - Grouped lists: oversized tasks (above the split threshold), unpointed open tasks, tasks with no epic, unknown `sp:` values, done/bucket mismatches, conflicting `sp:` labels, subtask cycles, unmatched child-project buckets.
+   - Grouped lists: oversized tasks (above the split threshold), unpointed open tasks, tasks with no epic, invalid `sp:` values, off-scale `sp:` values (only when `POINTS_SCALE` is set), done/bucket mismatches, conflicting `sp:` labels, subtask cycles, unmatched child-project buckets.
    - Each item links straight to the task in Vikunja so it can be fixed there.
 
 Visual style: plain, dense, and **dark by default**, regardless of the OS `prefers-color-scheme`. A light theme is available as an opt-in (header toggle, remembered per browser), implemented as `data-theme="light"` on the root element with all colours defined as CSS custom properties. Borrowing the spirit of Plane's clean list rows is fine; no component library is required.
@@ -231,7 +231,9 @@ All configuration is environment variables, validated with zod at startup; the a
 | `PROJECT_IDS` | all visible | Comma-separated project IDs offered in the picker |
 | `INCLUDE_CHILD_PROJECTS` | `true` | Roll child projects into their parent |
 | `POINTS_PREFIX` | `sp:` | Story-point label prefix |
-| `POINTS_ALLOWED` | `1,2,3,5,8,13,20,40` | Valid point values |
+| `POINTS_SCALE` | (unset) | Optional suggested point scale, e.g. `1,2,3,5,8,13,21,40`. Off-scale values still count; they're only flagged |
+| `EPIC_ALLOW_OVERLAP` | `true` | When `false`, tasks in more than one epic are flagged |
+| `EPIC_PARENT_POINTS` | `false` | Count a parent-mode epic task's own points toward its epic |
 | `EPIC_MODE` | `both` | `label`, `parent`, or `both` |
 | `EPIC_PREFIX` | `epic:` | Epic label prefix (label mode) |
 | `EPIC_MARKER_LABEL` | `epic` | Marker label for parent-mode epics |
@@ -304,7 +306,7 @@ After repo setup (milestone 0, above), build in five milestones, each ending wit
 
 **Required tests**
 
-- Label parsing: case, whitespace, unknown values, multiple `sp:` labels, values above the split threshold.
+- Label parsing: case, whitespace, decimals, non-numeric and non-positive values, off-scale values with and without `POINTS_SCALE`, multiple `sp:` labels, values above the split threshold.
 - Epic resolution: overlapping epics, nested subtasks, cycle detection, same slug merging across a parent and child project, staying separate across unrelated projects.
 - Rollups: empty epic, all-unpointed epic, reopened task, "No epic" bucket.
 - Bucket breakdown: child-project buckets matched by name, unmatched buckets appended, points-mode widths excluding unpointed tickets, done/bucket mismatch detection.
@@ -329,5 +331,5 @@ After repo setup (milestone 0, above), build in five milestones, each ending wit
 
 - Vikunja version (resolved): v2.7.0. This determines the task-listing endpoint.
 - Epic mode (resolved): Default is both, since parent tasks are already in use and epic labels stay optional.
-- Resolved: point scale is modified Fibonacci 1, 2, 3, 5, 8, 13, 20, 40; tasks above 5 get flagged to split or promote to an epic.
+- Resolved: points are flexible. Any positive number counts, and an optional `POINTS_SCALE` only adds soft flags. Tasks above 5 get flagged to split or promote to an epic.
 - Resolved: the dashboard covers one project or several at once, via a project picker with multi-select filtering.
