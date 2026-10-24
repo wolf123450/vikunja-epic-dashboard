@@ -75,6 +75,8 @@ export type RollupDTO = {
   unpointedOpen: number;
   status: EpicStatus;
   lastCompletedAt: string | null;
+  firstCreatedAt: string | null;
+  lastUpdatedAt: string | null;
   buckets: BucketCountDTO[];
 };
 
@@ -87,6 +89,10 @@ export type EpicDTO = {
   rootProjectId: number;
   rootProjectTitle: string;
   parentTask: { id: number; ref: string; url: string } | null;
+  /** Parent task's creation date for parent epics, else the earliest member's. */
+  createdAt: string | null;
+  /** Latest update to any member (or the parent task). Vikunja counts label/relation edits. */
+  lastActivityAt: string | null;
   rollup: RollupDTO;
 };
 

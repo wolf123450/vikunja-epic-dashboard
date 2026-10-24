@@ -1,14 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import type { EpicDTO } from '../../../shared/api';
 import { getEpics } from '../api';
-import DualProgress from '../components/DualProgress.vue';
+import BucketBar from '../components/BucketBar.vue';
+import EpicControls from '../components/EpicControls.vue';
 import LoadState from '../components/LoadState.vue';
 import VelocitySparkline from '../components/VelocitySparkline.vue';
+import { useEpicViewOptions } from '../composables/useEpicViewOptions';
 import { useResource } from '../composables/useResource';
 import { formatDate, formatNumber, percent, STATUS_LABELS } from '../lib/format';
+import { sortEpics } from '../lib/sort';
 import { apiIds, selectedIds } from '../store';
 
 const { data, error, loading } = useResource(() => getEpics(apiIds.value), [() => apiIds.value?.join(',') ?? '']);
+const options = useEpicViewOptions();
+// The row's date follows the sort when sorting by a date, else shows last completed.
+const rowDate = (e: EpicDTO): string | null =>
+  options.sort === 'activity' ? e.lastActivityAt : options.sort === 'created' ? e.createdAt : e.rollup.lastCompletedAt;
+const dateTitle = computed(() =>
+  options.sort === 'activity' ? 'Last activity' : options.sort === 'created' ? 'Created' : 'Last completed',
+);
+const epics = computed(() => (data.value ? sortEpics(data.value.epics, options.sort, options.dir) : []));
 const multi = computed(() => selectedIds.value.length > 1);
 </script>
 
@@ -45,6 +57,8 @@ const multi = computed(() => selectedIds.value.length > 1);
         <VelocitySparkline :weeks="data.velocity" />
       </section>
 
+      <EpicControls :buckets="data.buckets" />
+
       <p
         v-if="data.epics.length === 0"
         class="muted"
@@ -56,7 +70,7 @@ const multi = computed(() => selectedIds.value.length > 1);
         class="list"
       >
         <li
-          v-for="e in data.epics"
+          v-for="e in epics"
           :key="e.key"
           class="row"
           :class="{ noepic: e.isNoEpic }"
@@ -71,9 +85,13 @@ const multi = computed(() => selectedIds.value.length > 1);
             >{{ e.rootProjectTitle }}</span>
             <span class="muted status">{{ STATUS_LABELS[e.rollup.status] }}</span>
           </div>
-          <DualProgress
-            :rollup="e.rollup"
+          <BucketBar
             class="bars"
+            :epic-key="e.key"
+            :epic-name="e.name"
+            :rollup="e.rollup"
+            :buckets="data.buckets"
+            :mode="options.mode"
           />
           <div class="nums">
             <span>{{ formatNumber(e.rollup.pointsDone) }} / {{ formatNumber(e.rollup.pointsTotal) }} pts</span>
@@ -89,8 +107,8 @@ const multi = computed(() => selectedIds.value.length > 1);
             </span>
             <span
               class="muted last"
-              title="Last completed"
-            >{{ formatDate(e.rollup.lastCompletedAt) }}</span>
+              :title="dateTitle"
+            >{{ formatDate(rowDate(e)) }}</span>
           </div>
         </li>
       </ul>

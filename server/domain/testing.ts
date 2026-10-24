@@ -73,6 +73,7 @@ export function task(id: number, o: Partial<Task> = {}): Task {
     done: false,
     doneAt: null,
     createdAt: new Date('2026-01-01T12:00:00Z'),
+    updatedAt: new Date('2026-01-01T12:00:00Z'),
     points: null,
     epicKeys: [],
     bucketKey: null,

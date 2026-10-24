@@ -1,12 +1,14 @@
 import type { BucketCount, EpicStatus, Model, Rollup, Task } from './types.js';
 
-/** Points/task totals, status, last completion, and per-bucket counts for a set of tasks. */
+/** Points/task totals, status, completion/creation/update dates, and per-bucket counts for a set of tasks. */
 export function rollup(tasks: Task[]): Rollup {
   let pointsTotal = 0;
   let pointsDone = 0;
   let tasksDone = 0;
   let unpointedOpen = 0;
   let lastCompletedAt: Date | null = null;
+  let firstCreatedAt: Date | null = null;
+  let lastUpdatedAt: Date | null = null;
   const buckets = new Map<string | null, BucketCount>();
 
   for (const t of tasks) {
@@ -16,6 +18,8 @@ export function rollup(tasks: Task[]): Rollup {
       buckets.set(t.bucketKey, b);
     }
     b.tasks++;
+    if (!firstCreatedAt || t.createdAt < firstCreatedAt) firstCreatedAt = t.createdAt;
+    if (!lastUpdatedAt || t.updatedAt > lastUpdatedAt) lastUpdatedAt = t.updatedAt;
     if (t.points === null) {
       b.unpointed++;
       if (!t.done) unpointedOpen++;
@@ -41,6 +45,8 @@ export function rollup(tasks: Task[]): Rollup {
     unpointedOpen,
     status,
     lastCompletedAt,
+    firstCreatedAt,
+    lastUpdatedAt,
     buckets: [...buckets.values()],
   };
 }
