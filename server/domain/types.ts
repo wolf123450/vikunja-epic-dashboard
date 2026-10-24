@@ -68,6 +68,7 @@ export type Task = {
   done: boolean;
   doneAt: Date | null; // null when not done, even if Vikunja kept a stale done_at
   createdAt: Date;
+  updatedAt: Date; // last edit in Vikunja (labels, relations, bucket moves included)
   points: number | null; // null = unpointed
   epicKeys: string[]; // Epic.key values
   bucketKey: string | null; // Bucket.key, null = not on the board
@@ -116,6 +117,8 @@ export type Rollup = {
   unpointedOpen: number;
   status: EpicStatus; // empty epic = 'not-started'
   lastCompletedAt: Date | null;
+  firstCreatedAt: Date | null; // earliest member createdAt
+  lastUpdatedAt: Date | null; // latest member updatedAt
   buckets: BucketCount[]; // non-empty buckets only, unordered
 };
 

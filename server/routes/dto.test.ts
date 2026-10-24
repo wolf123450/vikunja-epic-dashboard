@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BUCKET_PALETTE, DONE_COLOR } from '../../shared/palette.js';
-import type { Bucket, Model } from '../domain/types.js';
-import { mergedBuckets } from './dto.js';
+import { rollup } from '../domain/rollup.js';
+import { task } from '../domain/testing.js';
+import type { Bucket, Epic, Model } from '../domain/types.js';
+import { epicDTO, mergedBuckets } from './dto.js';
 
 const b = (key: string, position: number, isDone = false): Bucket => ({ key, name: key, position, isDone });
 const model = (buckets: [number, Bucket[]][]): Model =>
@@ -32,5 +34,28 @@ describe('mergedBuckets colours', () => {
       qa: '#123456',
       shipped: DONE_COLOR,
     });
+  });
+});
+
+describe('epicDTO dates', () => {
+  const at = (s: string): Date => new Date(s);
+  const title = (): string => 'P';
+
+  it('uses the parent task for created and includes its edits in last activity', () => {
+    const parent = task(10, { createdAt: at('2025-12-01T00:00:00Z'), updatedAt: at('2026-06-01T00:00:00Z') });
+    const member = task(11, { createdAt: at('2026-01-01T00:00:00Z'), updatedAt: at('2026-03-01T00:00:00Z') });
+    const m = { ...model([]), tasks: [parent, member] } as Model;
+    const epic: Epic = { key: '1:x', slug: 'x', name: 'X', source: 'parent', rootProjectId: 1, parentTaskId: 10 };
+    const dto = epicDTO(m, epic, rollup([member]), title);
+    expect(dto.createdAt).toBe('2025-12-01T00:00:00.000Z');
+    expect(dto.lastActivityAt).toBe('2026-06-01T00:00:00.000Z');
+  });
+
+  it('falls back to member dates for label epics', () => {
+    const member = task(11, { createdAt: at('2026-01-01T00:00:00Z'), updatedAt: at('2026-03-01T00:00:00Z') });
+    const epic: Epic = { key: '1:x', slug: 'x', name: 'X', source: 'label', rootProjectId: 1 };
+    const dto = epicDTO(model([]), epic, rollup([member]), title);
+    expect(dto.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(dto.lastActivityAt).toBe('2026-03-01T00:00:00.000Z');
   });
 });

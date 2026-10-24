@@ -151,6 +151,9 @@ function buildEpic(spec: EpicSpec, index: number): MockEpic {
     unpointedOpen: open.filter((t) => t.points === null).length,
     status,
     lastCompletedAt: doneDates[doneDates.length - 1] ?? null,
+    // Synthetic but varied, so every sort order is visibly different.
+    firstCreatedAt: new Date(Date.UTC(2025, 10, 1 + ((index * 11) % 60))).toISOString(),
+    lastUpdatedAt: new Date(Date.UTC(2026, 3, 1 + ((index * 7) % 28))).toISOString(),
     buckets,
   };
   const root = mockProjects.find((p) => p.id === spec.root);
@@ -164,6 +167,8 @@ function buildEpic(spec: EpicSpec, index: number): MockEpic {
     rootProjectId: spec.root,
     rootProjectTitle: root?.title ?? 'Unknown',
     parentTask: spec.source === 'parent' && !isNoEpic ? { id: 9000 + index, ref: `DEMO-${9000 + index}`, url: `${BASE_URL}/tasks/${9000 + index}` } : null,
+    createdAt: rollup.firstCreatedAt,
+    lastActivityAt: rollup.lastUpdatedAt,
     rollup,
   };
   return { dto, tasks };
@@ -200,6 +205,8 @@ export function sumRollups(rollups: RollupDTO[]): RollupDTO {
     unpointedOpen: sum((r) => r.unpointedOpen),
     status: 'in-progress',
     lastCompletedAt: last,
+    firstCreatedAt: rollups.map((r) => r.firstCreatedAt ?? '').filter(Boolean).sort()[0] ?? null,
+    lastUpdatedAt: rollups.map((r) => r.lastUpdatedAt ?? '').sort().pop() || null,
     buckets: [...byKey.values()],
   };
 }

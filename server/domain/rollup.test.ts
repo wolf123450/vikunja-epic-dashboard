@@ -14,6 +14,8 @@ describe('rollup', () => {
       unpointedOpen: 0,
       status: 'not-started',
       lastCompletedAt: null,
+      firstCreatedAt: null,
+      lastUpdatedAt: null,
       buckets: [],
     });
   });
@@ -35,6 +37,16 @@ describe('rollup', () => {
     ]);
     expect(r).toMatchObject({ pointsTotal: 16, pointsDone: 8, tasksTotal: 3, tasksDone: 2, unpointedOpen: 0 });
     expect(r.lastCompletedAt).toEqual(new Date('2026-03-01T00:00:00Z'));
+  });
+
+  it('tracks the earliest creation and the latest update across members', () => {
+    const at = (s: string): Date => new Date(s);
+    const r = rollup([
+      task(1, { createdAt: at('2026-02-01T00:00:00Z'), updatedAt: at('2026-04-01T00:00:00Z') }),
+      task(2, { createdAt: at('2026-01-15T00:00:00Z'), updatedAt: at('2026-05-01T00:00:00Z') }),
+    ]);
+    expect(r.firstCreatedAt).toEqual(at('2026-01-15T00:00:00Z'));
+    expect(r.lastUpdatedAt).toEqual(at('2026-05-01T00:00:00Z'));
   });
 
   it('reports done only when every task is done', () => {

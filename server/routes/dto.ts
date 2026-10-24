@@ -5,6 +5,7 @@ import { bucketColor } from '../../shared/palette.js';
 import type { Bucket, Epic, Model, Rollup, Task } from '../domain/types.js';
 
 export const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
+const latest = (a: Date | null, b: Date | null): Date | null => (!a ? b : !b || a > b ? a : b);
 
 export function taskDTO(t: Task): TaskDTO {
   return {
@@ -30,6 +31,8 @@ export function rollupDTO(r: Rollup): RollupDTO {
     unpointedOpen: r.unpointedOpen,
     status: r.status,
     lastCompletedAt: iso(r.lastCompletedAt),
+    firstCreatedAt: iso(r.firstCreatedAt),
+    lastUpdatedAt: iso(r.lastUpdatedAt),
     buckets: r.buckets.map((b) => ({ ...b })),
   };
 }
@@ -50,6 +53,8 @@ export function epicDTO(
     rootProjectId: epic.rootProjectId,
     rootProjectTitle: projectTitle(epic.rootProjectId),
     parentTask: parent ? { id: parent.id, ref: parent.ref, url: parent.url } : null,
+    createdAt: iso(parent?.createdAt ?? rollup.firstCreatedAt),
+    lastActivityAt: iso(latest(parent?.updatedAt ?? null, rollup.lastUpdatedAt)),
     rollup: rollupDTO(rollup),
   };
 }
@@ -68,6 +73,8 @@ export function noEpicDTO(
     rootProjectId,
     rootProjectTitle: projectTitle(rootProjectId),
     parentTask: null,
+    createdAt: iso(rollup.firstCreatedAt),
+    lastActivityAt: iso(rollup.lastUpdatedAt),
     rollup: rollupDTO(rollup),
   };
 }

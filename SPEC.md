@@ -178,16 +178,19 @@ Four screens plus a project picker. Design for a desktop browser first, but keep
 
 - Single-select switches the whole dashboard to one project; multi-select combines projects, and each epic then shows its project as a small tag.
 - Type-to-filter in the dropdown; child projects nest under their parent.
-- The selection lives in the URL (`?projects=12,15`) so a filtered view can be bookmarked. Default is every project in `PROJECT_IDS`.
+- The selection lives in the URL (`?projects=12,15`) so a filtered view can be bookmarked, and it carries across screens and Back. The last selection is also kept in browser storage and restored on a fresh visit; "Use default selection" clears it. Default is every project in `PROJECT_IDS`.
 - Epics are keyed by rollup root plus slug (the top-most selected ancestor when child projects are rolled in; an ancestor that isn't in `PROJECT_IDS` or its descendants is never climbed to, so a selected child whose parent isn't selected is its own root), so the same `epic:` label in a parent and its child merges into one epic, while in two unrelated projects it stays two epics.
 
 1. **Epic overview (list, home for a project)**
-   - One row per epic, sorted by status (In progress, Not started, Done), then by points remaining.
-   - Each row: name, a dual progress bar (points and tasks), "13 / 34 pts", "9 / 21 tasks", unpointed-open badge, last-completed date.
+   - One row per epic, sorted by status (In progress, Not started, Done), then by points remaining, by default.
+   - Sort control (shared with the cards view, kept in browser storage): Status, Name, Last activity, Created, Last completed, Progress (pts %), Points remaining, Total points, with an ascending/descending toggle. Missing values sort last; "No epic" rows always stay at the bottom.
+     - Created: the parent task's creation date for parent epics, else the earliest member's.
+     - Last activity: the latest `updated` of any member or the parent task. Vikunja counts label and relation edits as updates.
+   - Each row: name, the same segmented bucket bar as the cards view (with legend and width toggle), "13 / 34 pts", "9 / 21 tasks", unpointed-open badge, and a date: last completed, or the sort's date when sorting by Created or Last activity.
    - A "No epic" row at the bottom so unassigned work stays visible.
    - Header: project totals, weekly velocity sparkline, last-sync time, refresh button.
 2. **Epic cards (board)**
-   - One card per epic in a responsive grid (3 columns on desktop, 1 on phone), same sort as the overview. A list/cards toggle switches between views 1 and 2.
+   - One card per epic in a responsive grid (3 columns on desktop, 1 on phone), same sort control as the overview. A list/cards toggle switches between views 1 and 2.
    - Card: epic name, status, "13 / 34 pts · 9 / 21 tasks", unpointed-open badge.
    - Segmented progress bar: one segment per Kanban bucket, width = that bucket's share of the epic's tickets, in the bucket order from Vikunja (left to right, Backlog to Done). Empty buckets get no segment.
    - Each bucket keeps one colour on every card, so cards compare at a glance. Colours come from a fixed palette assigned by bucket position; the done bucket always uses the success colour; unbucketed tickets are grey. Per-bucket overrides in config.
