@@ -9,7 +9,16 @@ import { useResource } from '../composables/useResource';
 import type { BurnupMetric } from '../lib/burnup';
 import { FLAG_LABELS, forecastText, formatDate, formatNumber, STATUS_LABELS } from '../lib/format';
 import { firstString } from '../lib/query';
-import { filterTasks, NO_BUCKET_FILTER, type TaskFilters } from '../lib/tasks';
+import { UNBUCKETED_COLOR } from '../../../shared/palette';
+import {
+  filterTasks,
+  NO_BUCKET_FILTER,
+  sortTasks,
+  TASK_SORT_FIRST_DIR,
+  type TaskFilters,
+  type TaskSortDir,
+  type TaskSortKey,
+} from '../lib/tasks';
 import { apiIds } from '../store';
 
 const route = useRoute();
@@ -34,6 +43,9 @@ const bucket = computed<string>({
 });
 
 const bucketNames = computed(() => new Map((data.value?.buckets ?? []).map((b) => [b.key, b.name])));
+const bucketColors = computed(() => new Map((data.value?.buckets ?? []).map((b) => [b.key, b.color])));
+const bucketPositions = computed(() => new Map((data.value?.buckets ?? []).map((b) => [b.key, b.position])));
+const bucketColor = (k: string | null): string => (k === null ? UNBUCKETED_COLOR : (bucketColors.value.get(k) ?? UNBUCKETED_COLOR));
 const bucketOptions = computed(() => {
   const used = new Set((data.value?.tasks ?? []).map((t) => t.bucketKey));
   const opts = (data.value?.buckets ?? []).filter((b) => used.has(b.key) || b.key === bucket.value).map((b) => ({ value: b.key, label: b.name }));
@@ -44,6 +56,31 @@ const bucketLabel = (k: string | null): string => (k === null ? 'Not on board' :
 
 const filtered = computed(() =>
   filterTasks(data.value?.tasks ?? [], { bucket: bucket.value, state: state.value, pointed: pointed.value }),
+);
+
+// Column sort. null keeps the server order. Clicking a header cycles: natural direction,
+// reversed, back to server order.
+const sort = ref<{ key: TaskSortKey; dir: TaskSortDir } | null>(null);
+const COLUMNS: { key: TaskSortKey; label: string; cls?: string }[] = [
+  { key: 'ref', label: 'Ref' },
+  { key: 'title', label: 'Title' },
+  { key: 'bucket', label: 'Bucket' },
+  { key: 'points', label: 'Pts', cls: 'r' },
+  { key: 'state', label: 'State' },
+  { key: 'doneAt', label: 'Done' },
+  { key: 'flags', label: 'Flags' },
+];
+function toggleSort(key: TaskSortKey): void {
+  const first = TASK_SORT_FIRST_DIR[key];
+  const cur = sort.value;
+  if (cur?.key !== key) sort.value = { key, dir: first };
+  else if (cur.dir === first) sort.value = { key, dir: first === 'asc' ? 'desc' : 'asc' };
+  else sort.value = null;
+}
+const ariaSort = (key: TaskSortKey): 'ascending' | 'descending' | 'none' =>
+  sort.value?.key !== key ? 'none' : sort.value.dir === 'asc' ? 'ascending' : 'descending';
+const rows = computed(() =>
+  sort.value ? sortTasks(filtered.value, sort.value.key, sort.value.dir, bucketPositions.value) : filtered.value,
 );
 const forecast = computed(() => forecastText(data.value?.forecast ?? null));
 const hasReconstructed = computed(() => (data.value?.burnup ?? []).some((p) => p.source === 'reconstructed'));
@@ -169,14 +206,29 @@ const hasReconstructed = computed(() => (data.value?.burnup ?? []).some((p) => p
           <table>
             <thead>
               <tr>
-                <th>Ref</th><th>Title</th><th>Bucket</th><th class="r">
-                  Pts
-                </th><th>State</th><th>Done</th><th>Flags</th>
+                <th
+                  v-for="c in COLUMNS"
+                  :key="c.key"
+                  :class="c.cls"
+                  :aria-sort="ariaSort(c.key)"
+                >
+                  <button
+                    type="button"
+                    class="sorthead"
+                    :title="`Sort by ${c.label}`"
+                    @click="toggleSort(c.key)"
+                  >
+                    {{ c.label }}<span
+                      class="arrow"
+                      aria-hidden="true"
+                    >{{ ariaSort(c.key) === 'ascending' ? '▲' : ariaSort(c.key) === 'descending' ? '▼' : '' }}</span>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
               <tr
-                v-for="t in filtered"
+                v-for="t in rows"
                 :key="t.id"
               >
                 <td class="nowrap">
@@ -189,11 +241,21 @@ const hasReconstructed = computed(() => (data.value?.burnup ?? []).some((p) => p
                     rel="noopener noreferrer"
                   >{{ t.title }}</a>
                 </td>
-                <td>{{ bucketLabel(t.bucketKey) }}</td>
+                <td>
+                  <span
+                    class="pill"
+                    :style="{ '--pill': bucketColor(t.bucketKey) }"
+                  >{{ bucketLabel(t.bucketKey) }}</span>
+                </td>
                 <td class="r">
                   {{ t.points ?? '-' }}
                 </td>
-                <td>{{ t.done ? 'Done' : 'Open' }}</td>
+                <td>
+                  <span
+                    class="pill"
+                    :class="t.done ? 'state-done' : 'state-open'"
+                  >{{ t.done ? 'Done' : 'Open' }}</span>
+                </td>
                 <td class="nowrap">
                   {{ formatDate(t.doneAt) }}
                 </td>
@@ -302,5 +364,49 @@ tr:last-child td {
 }
 .badge {
   margin-right: 0.25rem;
+}
+th {
+  padding: 0;
+}
+.sorthead {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+th.r .sorthead {
+  justify-content: flex-end;
+}
+.sorthead:hover {
+  color: var(--text);
+}
+.sorthead:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+.arrow {
+  font-size: 0.65rem;
+  min-width: 0.65rem;
+}
+.pill {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--text);
+  border: 1px solid var(--pill);
+  background: color-mix(in srgb, var(--pill) 22%, transparent);
+}
+.state-done {
+  --pill: var(--success);
+}
+.state-open {
+  --pill: var(--accent);
 }
 </style>

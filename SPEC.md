@@ -201,6 +201,7 @@ Four screens plus a project picker. Design for a desktop browser first, but keep
 3. **Epic detail**
    - Burn-up chart: scope line and completed line in points, with a toggle for task counts. The reconstructed period is shaded and labelled "approximate".
    - Member task table: ref, title (links to Vikunja), bucket, points, done/open, done date, flags. Filter by bucket, open/done, and pointed/unpointed.
+   - Bucket and state show as colour pills (bucket colour from the palette; done green, open accent). Clicking a column header sorts by it: first click in the natural direction (text A-Z, buckets in board order, numbers and dates largest/newest first), second click reverses, third returns to server order. Missing values sort last; ties keep server order.
 4. **Hygiene**
    - Grouped lists: oversized tasks (above the split threshold), unpointed open tasks, tasks with no epic, invalid `sp:` values, off-scale `sp:` values (only when `POINTS_SCALE` is set), done/bucket mismatches, conflicting `sp:` labels, subtask cycles, unmatched child-project buckets.
    - Each item links straight to the task in Vikunja so it can be fixed there.

@@ -5,7 +5,7 @@ import { forecastText, percent, relativeTime, sparklinePoints } from './format';
 import { buildPickerRows, selectionLabel } from './projects';
 import { parseProjectIds, projectsQueryString, toggleId } from './query';
 import { computeSegments, segmentDescription } from './segments';
-import { filterTasks, NO_BUCKET_FILTER } from './tasks';
+import { filterTasks, NO_BUCKET_FILTER, sortTasks } from './tasks';
 
 const buckets: BucketDTO[] = [
   { key: 'todo', name: 'To do', position: 0, color: '#111111', isDone: false },
@@ -143,6 +143,51 @@ describe('filterTasks', () => {
     expect(filterTasks(tasks, { bucket: '', state: 'done', pointed: 'all' }).map((x) => x.id)).toEqual([2]);
     expect(filterTasks(tasks, { bucket: '', state: 'open', pointed: 'unpointed' }).map((x) => x.id)).toEqual([3, 4]);
     expect(filterTasks(tasks, { bucket: '', state: 'all', pointed: 'all' })).toHaveLength(4);
+  });
+});
+
+describe('sortTasks', () => {
+  const t = (id: number, over: Partial<TaskDTO> = {}): TaskDTO => ({
+    id,
+    ref: `T-${id}`,
+    title: `Task ${id}`,
+    url: 'https://vikunja.example/tasks/' + id,
+    projectId: 1,
+    bucketKey: null,
+    points: null,
+    done: false,
+    doneAt: null,
+    flags: [],
+    ...over,
+  });
+  const ids = (xs: TaskDTO[]): number[] => xs.map((x) => x.id);
+
+  it('compares refs naturally in both directions', () => {
+    const tasks = [t(10), t(9), t(100)];
+    expect(ids(sortTasks(tasks, 'ref', 'asc'))).toEqual([9, 10, 100]);
+    expect(ids(sortTasks(tasks, 'ref', 'desc'))).toEqual([100, 10, 9]);
+  });
+
+  it('sorts buckets by board position with off-board tasks last', () => {
+    const pos = new Map([['backlog', 0], ['doing', 1], ['done', 2]]);
+    const tasks = [t(1, { bucketKey: 'done' }), t(2), t(3, { bucketKey: 'backlog' }), t(4, { bucketKey: 'doing' })];
+    expect(ids(sortTasks(tasks, 'bucket', 'asc', pos))).toEqual([3, 4, 1, 2]);
+    expect(ids(sortTasks(tasks, 'bucket', 'desc', pos))).toEqual([1, 4, 3, 2]);
+  });
+
+  it('keeps missing points and done dates last and ties stable', () => {
+    const tasks = [t(1, { points: 3 }), t(2), t(3, { points: 5 }), t(4, { points: 3 })];
+    expect(ids(sortTasks(tasks, 'points', 'desc'))).toEqual([3, 1, 4, 2]);
+    expect(ids(sortTasks(tasks, 'points', 'asc'))).toEqual([1, 4, 3, 2]);
+    const dated = [t(1, { doneAt: '2026-11-13T00:00:00Z' }), t(2), t(3, { doneAt: '2026-11-15T00:00:00Z' })];
+    expect(ids(sortTasks(dated, 'doneAt', 'desc'))).toEqual([3, 1, 2]);
+    expect(ids(sortTasks(dated, 'doneAt', 'asc'))).toEqual([1, 3, 2]);
+  });
+
+  it('puts open before done when ascending by state', () => {
+    const tasks = [t(1, { done: true }), t(2), t(3, { done: true }), t(4)];
+    expect(ids(sortTasks(tasks, 'state', 'asc'))).toEqual([2, 4, 1, 3]);
+    expect(ids(sortTasks(tasks, 'state', 'desc'))).toEqual([1, 3, 2, 4]);
   });
 });
 
